@@ -2,7 +2,7 @@
  * Common components barrel export
  */
 
-export { SearchBar } from './SearchBar'
+export { SmartSearchBar } from './SmartSearchBar'
 export { ErrorPage } from './ErrorPage'
 export { VersionNotification } from './VersionNotification'
 export { RegistryAuthentication } from './RegistryAuthentication'

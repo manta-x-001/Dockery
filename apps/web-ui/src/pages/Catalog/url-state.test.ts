@@ -50,6 +50,7 @@ describe('serializeCatalogParams', () => {
 describe('round-trip', () => {
   it('parse(serialize(state)) reconstructs a non-default state', () => {
     const state: CatalogUrlState = {
+      namespace: 'org/team',
       searchQuery: 'redis',
       sort: 'tags',
       sortDirection: 'asc',

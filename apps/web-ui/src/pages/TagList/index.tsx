@@ -1,10 +1,14 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { copyText } from '@bizjs/biz-utils';
+import { imageRef } from '@/lib/image-ref';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Input } from '@/components/ui/input';
 import { useViewModel } from 'bizify';
 import { TagListViewModel } from './view-model';
 import { TagTable } from './TagTable';
-import { TagDetailDrawer } from './TagDetailDrawer';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Trash2, X } from 'lucide-react';
+import { TagDetailDrawer, TagDetailContent } from './TagDetailDrawer';
+import type { ImageInfo } from '@/services/registry.service';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Trash2, X, Copy, Check, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -31,15 +35,11 @@ import {
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
 
+/** Standalone page at /tag-list/:image. */
 export default function TagList() {
   const { image } = useParams<{ image: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const vm = useViewModel(TagListViewModel);
-  const snapshot = vm.useSnapshot();
-  const meSnap = currentUserViewModel.useSnapshot();
-  // Role `view` can only pull; hide delete affordances to match server policy.
-  const canDelete = meSnap.user?.role === 'admin' || meSnap.user?.role === 'write';
 
   // Go back through history so the catalog's search / sort / pagination
   // (carried in its URL query) is restored exactly. `location.key` is
@@ -48,21 +48,75 @@ export default function TagList() {
   // back to, so fall back to a clean catalog.
   const handleBack = () => (location.key !== 'default' ? navigate(-1) : navigate('/'));
 
+  return <TagListPanel image={decodeURIComponent(image || '')} onBack={handleBack} />;
+}
+
+interface TagListPanelProps {
+  image: string;
+  /** Page mode: shows a Back button and the image title. */
+  onBack?: () => void;
+  /** Embedded mode (expanded Catalog row): no page header. */
+  embedded?: boolean;
+}
+
+export function TagListPanel({ image, onBack, embedded = false }: TagListPanelProps) {
+  const vm = useViewModel(TagListViewModel);
+  const snapshot = vm.useSnapshot();
+  const [copiedTag, setCopiedTag] = useState<string | null>(null);
+  const handleCopy = async (tag: string) => {
+    const text = imageRef(snapshot.image, tag);
+    try {
+      await copyText(text);
+      setCopiedTag(tag);
+      toast.success(`Copied ${text}`);
+      setTimeout(() => setCopiedTag((c) => (c === tag ? null : c)), 1500);
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+  const meSnap = currentUserViewModel.useSnapshot();
+  // Role `view` can only pull; hide delete affordances to match server policy.
+  const canDelete = meSnap.user?.role === 'admin' || meSnap.user?.role === 'write';
+
   useEffect(() => {
-    const decodedImage = decodeURIComponent(image || '');
-    vm.setImageName(decodedImage);
+    vm.setImageName(image);
   }, [vm, image]);
+
+  // Embedded mode: Detail slides over the list inside the same drawer
+  // instead of stacking a second one. `shown` drives the slide; `settled`
+  // collapses the off-screen list once the slide finished so the scroll
+  // height follows the detail pane.
+  const [detail, setDetail] = useState<ImageInfo | null>(null);
+  const [shown, setShown] = useState(false);
+  const [settled, setSettled] = useState(false);
+  const openDetail = (t: ImageInfo) => {
+    setDetail(t);
+    requestAnimationFrame(() => setShown(true));
+  };
+  const closeDetail = () => {
+    setShown(false);
+    setTimeout(() => setDetail(null), 150);
+  };
+  useEffect(() => {
+    if (!shown) {
+      setSettled(false);
+      return;
+    }
+    const id = setTimeout(() => setSettled(true), 150);
+    return () => clearTimeout(id);
+  }, [shown]);
 
   // Slice the sorted list for the current page. Kept in the component
   // because Valtio class getters don't subscribe via useSnapshot.
-  const pageCount = useMemo(
-    () => Math.max(1, Math.ceil(snapshot.tagList.length / snapshot.pageSize)),
-    [snapshot.tagList.length, snapshot.pageSize],
-  );
+  const filteredTags = useMemo(() => {
+    const q = snapshot.tagQuery.trim().toLowerCase();
+    return q ? snapshot.tagList.filter((t) => t.tag.toLowerCase().includes(q)) : snapshot.tagList;
+  }, [snapshot.tagList, snapshot.tagQuery]);
+  const pageCount = Math.max(1, Math.ceil(filteredTags.length / snapshot.pageSize));
   const pagedTags = useMemo(() => {
     const start = snapshot.page * snapshot.pageSize;
-    return snapshot.tagList.slice(start, start + snapshot.pageSize);
-  }, [snapshot.tagList, snapshot.page, snapshot.pageSize]);
+    return filteredTags.slice(start, start + snapshot.pageSize);
+  }, [filteredTags, snapshot.page, snapshot.pageSize]);
 
   const selectedSet = useMemo(() => new Set(snapshot.selectedTags), [snapshot.selectedTags]);
   const pageTagNames = useMemo(() => pagedTags.map((t) => t.tag), [pagedTags]);
@@ -79,22 +133,37 @@ export default function TagList() {
     );
   }
 
-  return (
+  const list = (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header: full in page mode, just count + search when embedded */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={handleBack}>
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
+        {!embedded && onBack && (
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+        )}
         <div className="flex-1">
-          <h2 className="text-2xl font-bold">{snapshot.image}</h2>
+          {!embedded && <h2 className="text-2xl font-bold">{snapshot.image}</h2>}
           {!snapshot.loading && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {snapshot.tagList.length} {snapshot.tagList.length === 1 ? 'tag' : 'tags'} available
+            <p className={`text-sm text-muted-foreground ${embedded ? '' : 'mt-1'}`}>
+              {snapshot.tagQuery.trim()
+                ? `${filteredTags.length} of ${snapshot.tagList.length} tags match`
+                : `${snapshot.tagList.length} ${snapshot.tagList.length === 1 ? 'tag' : 'tags'} available`}
             </p>
           )}
         </div>
+        {snapshot.tagList.length > 0 && (
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-text" />
+            <Input
+              value={snapshot.tagQuery}
+              onChange={(e) => vm.setTagQuery(e.target.value)}
+              placeholder="Search tags..."
+              className="pl-10 h-9"
+            />
+          </div>
+        )}
       </div>
 
       {/* Loading state */}
@@ -148,7 +217,7 @@ export default function TagList() {
 
       {/* Tags table */}
       {!snapshot.loading && !snapshot.error && snapshot.tagList.length > 0 && (
-        <>
+        <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-150">
           <TagTable
             sortField={snapshot.sortField}
             sortDirection={snapshot.sortDirection}
@@ -158,6 +227,13 @@ export default function TagList() {
             someOnPageSelected={someOnPageSelected}
             onToggleSelectPage={() => vm.toggleSelectPage(pageTagNames)}
           >
+            {pagedTags.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                  No tags match your search.
+                </td>
+              </tr>
+            )}
             {pagedTags.map((tagInfo) => (
               <tr key={tagInfo.tag} className="border-b">
                 {canDelete && (
@@ -171,7 +247,23 @@ export default function TagList() {
                     />
                   </td>
                 )}
-                <td className="px-4 py-3">{tagInfo.tag}</td>
+                <td className="px-4 py-3">
+                  <span className="inline-flex items-center gap-1.5">
+                    {tagInfo.tag}
+                    <button
+                      onClick={() => handleCopy(tagInfo.tag)}
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label={`Copy ${snapshot.image}:${tagInfo.tag}`}
+                      title={`Copy ${imageRef(snapshot.image, tagInfo.tag)}`}
+                    >
+                      {copiedTag === tagInfo.tag ? (
+                        <Check className="h-3.5 w-3.5 text-green-500" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-muted-foreground w-32">
                   {formatBinarySize(tagInfo.size)}
                 </td>
@@ -194,7 +286,7 @@ export default function TagList() {
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-3">
                     <button
-                      onClick={() => vm.openDrawer(tagInfo)}
+                      onClick={() => (embedded ? openDetail(tagInfo) : vm.openDrawer(tagInfo))}
                       className="text-primary hover:underline text-sm font-medium"
                     >
                       Detail
@@ -219,10 +311,10 @@ export default function TagList() {
             <div className="text-muted-foreground">
               Showing{' '}
               <span className="font-medium text-foreground">
-                {snapshot.page * snapshot.pageSize + 1}–
-                {Math.min((snapshot.page + 1) * snapshot.pageSize, snapshot.tagList.length)}
+                {filteredTags.length === 0 ? 0 : snapshot.page * snapshot.pageSize + 1}–
+                {Math.min((snapshot.page + 1) * snapshot.pageSize, filteredTags.length)}
               </span>{' '}
-              of <span className="font-medium text-foreground">{snapshot.tagList.length}</span>
+              of <span className="font-medium text-foreground">{filteredTags.length}</span>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -291,16 +383,18 @@ export default function TagList() {
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Tag Detail Drawer */}
+      {!embedded && (
       <TagDetailDrawer
         open={snapshot.isDrawerOpen}
         onClose={() => vm.closeDrawer()}
         tagInfo={snapshot.selectedTag}
         imageName={snapshot.image}
       />
+      )}
 
       {/* Single-tag Delete Confirmation Dialog */}
       <AlertDialog open={snapshot.deleteDialogOpen} onOpenChange={vm.closeDeleteDialog}>
@@ -409,6 +503,29 @@ export default function TagList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+
+  if (!embedded) return list;
+
+  // Two panes side by side; translating by half the track slides between them.
+  return (
+    <div className="-mx-6 -my-4 overflow-x-hidden">
+      <div
+        className={`flex w-[200%] transition-transform duration-150 ease-out ${shown ? '-translate-x-1/2' : ''}`}
+      >
+        <div className={`w-1/2 shrink-0 px-6 py-4 ${settled ? 'h-0 overflow-hidden' : ''}`}>{list}</div>
+        <div className="w-1/2 shrink-0">
+          {detail && (
+            <TagDetailContent
+              tagInfo={detail}
+              imageName={snapshot.image}
+              onClose={closeDetail}
+              variant="back"
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

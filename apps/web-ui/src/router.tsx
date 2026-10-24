@@ -6,6 +6,7 @@ import { ErrorPage } from '@/components/common';
 
 import Catalog from '@/pages/Catalog';
 import TagList from '@/pages/TagList';
+import GitSearch from '@/pages/GitSearch';
 import LoginPage from '@/pages/Login';
 import UsersPage from '@/pages/Admin/Users';
 import MaintenancePage from '@/pages/Admin/Maintenance';
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Catalog /> },
       { path: 'tag-list/:image', element: <TagList /> },
+      { path: 'search', element: <GitSearch /> },
       {
         path: 'admin/users',
         element: (

@@ -3,11 +3,12 @@
  * Drawer to display detailed information about a Docker image tag
  */
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { formatBinarySize } from '@/utils';
-import { Copy, Check, X } from 'lucide-react';
+import { Copy, Check, X, ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
+import { imageRef } from '@/lib/image-ref';
 import { copyText } from '@bizjs/biz-utils';
 import { toast } from 'sonner';
 import type { ImageInfo } from '@/services/registry.service';
@@ -21,11 +22,32 @@ interface TagDetailDrawerProps {
 }
 
 export function TagDetailDrawer({ open, onClose, tagInfo, imageName }: TagDetailDrawerProps) {
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-
   if (!tagInfo) {
     return null;
   }
+  return (
+    <Sheet open={open} onOpenChange={onClose}>
+      <SheetContent className="w-full sm:max-w-4xl flex flex-col p-0">
+        <SheetTitle className="sr-only">
+          Tag Details: {imageName}:{tagInfo.tag}
+        </SheetTitle>
+        <TagDetailContent tagInfo={tagInfo} imageName={imageName} onClose={onClose} />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+interface TagDetailContentProps {
+  tagInfo: ImageInfo;
+  imageName: string;
+  onClose: () => void;
+  /** 'back' renders a "Back to tags" button (in-drawer navigation) instead of a close X. */
+  variant?: 'close' | 'back';
+}
+
+/** Detail body shared by the stand-alone drawer and the in-drawer slide-over pane. */
+export function TagDetailContent({ tagInfo, imageName, onClose, variant = 'close' }: TagDetailContentProps) {
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const copyToClipboard = async (text: string, fieldName: string) => {
     // biz-utils handles the HTTP-localhost fallback — plain
@@ -40,20 +62,27 @@ export function TagDetailDrawer({ open, onClose, tagInfo, imageName }: TagDetail
     }
   };
 
-  const pullCommand = `docker pull ${imageName}:${tagInfo.tag}`;
+  const pullCommand = `docker pull ${imageRef(imageName, tagInfo.tag)}`;
   const isMultiArch = !!tagInfo.platforms && tagInfo.platforms.length > 0;
 
   return (
-    <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-4xl flex flex-col p-0">
-        <SheetHeader className="px-6 py-4 border-b sticky top-0 bg-background z-10 flex flex-row items-center justify-between">
-          <SheetTitle>
+    <div className="flex flex-1 min-h-0 flex-col">
+        <div className="px-6 py-4 border-b sticky top-0 bg-background z-10 flex flex-row items-center gap-2">
+          {variant === 'back' && (
+            <Button variant="ghost" size="sm" onClick={onClose} className="-ml-3">
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Tags
+            </Button>
+          )}
+          <h2 className="flex-1 text-lg font-semibold leading-none tracking-tight">
             Tag Details: {imageName}:{tagInfo.tag}
-          </SheetTitle>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-6 w-6 rounded-full">
-            <X className="h-4 w-4" />
-          </Button>
-        </SheetHeader>
+          </h2>
+          {variant === 'close' && (
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-6 w-6 rounded-full">
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
           {/* Pull Command */}
@@ -294,7 +323,6 @@ export function TagDetailDrawer({ open, onClose, tagInfo, imageName }: TagDetail
             Close
           </Button>
         </div> */}
-      </SheetContent>
-    </Sheet>
+    </div>
   );
 }

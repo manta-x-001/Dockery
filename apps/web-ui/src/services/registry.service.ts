@@ -105,6 +105,8 @@ export interface OverviewParams {
   sort?: OverviewSortField;
   direction?: OverviewSortDirection;
   q?: string;
+  /** Only repos under this namespace path, at any depth. */
+  namespace?: string;
 }
 
 export async function getOverview(p: OverviewParams = {}): Promise<OverviewResponse> {
@@ -114,6 +116,7 @@ export async function getOverview(p: OverviewParams = {}): Promise<OverviewRespo
   if (p.sort) qs.set('sort', p.sort);
   if (p.direction) qs.set('direction', p.direction);
   if (p.q) qs.set('q', p.q);
+  if (p.namespace) qs.set('namespace', p.namespace);
   const suffix = qs.toString();
   return api.get<OverviewResponse>(
     `/api/registry/overview${suffix ? '?' + suffix : ''}`,

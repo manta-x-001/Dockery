@@ -6,6 +6,8 @@
  */
 
 import { useEffect, useState } from 'react';
+import { TagListPanel } from '@/pages/TagList';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   ArrowDown,
   ArrowUp,
@@ -19,14 +21,17 @@ import {
   Package,
   RefreshCw,
 } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { copyText } from '@bizjs/biz-utils';
 import { toast } from 'sonner';
 
 import { useViewModel } from 'bizify';
 import { CatalogViewModel, type SortField } from './view-model';
 import { serializeCatalogParams, PAGE_SIZE_OPTIONS } from './url-state';
-import { SearchBar } from '@/components/common/SearchBar';
+import { NamespacePanel } from './NamespacePanel';
+import { SmartSearchBar } from '@/components/common/SmartSearchBar';
+import { imageRef } from '@/lib/image-ref';
+import { parseGitQuery } from '@/lib/git-query';
 import { formatBinarySize, formatDateTime } from '@/utils';
 import { compactArchLabel, formatPlatform } from '../TagList/platforms';
 import type { OverviewItem, OverviewPlatform } from '@/services/registry.service';
@@ -69,6 +74,10 @@ export default function Catalog() {
   const vm = useViewModel(CatalogViewModel);
   const snapshot = vm.useSnapshot();
   const [, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  // The box holds the raw query (free text + git.x:value tokens); only the
+  // free-text part drives the live catalog filter.
+  const [rawQuery, setRawQuery] = useState(snapshot.searchQuery);
 
   // Mirror search / sort / pagination into the URL so it's the single
   // source of truth — surviving back-navigation from a tag-list, a
@@ -77,21 +86,23 @@ export default function Catalog() {
   // skips the write. `replace` keeps these param tweaks out of the
   // history stack so Back returns to wherever the user came from rather
   // than stepping through every sort toggle.
-  const { searchQuery, sort, sortDirection, page, pageSize } = snapshot;
+  const { namespace, searchQuery, sort, sortDirection, page, pageSize } = snapshot;
   useEffect(() => {
-    const next = serializeCatalogParams({ searchQuery, sort, sortDirection, page, pageSize });
+    const next = serializeCatalogParams({ namespace, searchQuery, sort, sortDirection, page, pageSize });
     if (next.toString() !== new URLSearchParams(window.location.search).toString()) {
       setSearchParams(next, { replace: true });
     }
-  }, [searchQuery, sort, sortDirection, page, pageSize, setSearchParams]);
+  }, [namespace, searchQuery, sort, sortDirection, page, pageSize, setSearchParams]);
 
   // Track which row's copy button was most recently clicked so the
   // icon swaps Copy → Check for ~1.5s as immediate visual feedback
   // (toast handles the message; the inline swap confirms "yes, this
   // button specifically fired").
+  // Repo whose tag list is open in the right-hand drawer.
+  const [openRepo, setOpenRepo] = useState<string | null>(null);
   const [copiedRepo, setCopiedRepo] = useState<string | null>(null);
   const handleCopy = async (repo: string, tag: string) => {
-    const text = `${repo}:${tag}`;
+    const text = imageRef(repo, tag);
     try {
       await copyText(text);
       setCopiedRepo(repo);
@@ -142,10 +153,12 @@ export default function Catalog() {
   const refetching = snapshot.loading && snapshot.items.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="flex items-start gap-6">
+    <NamespacePanel selected={snapshot.namespace} onSelect={(p) => vm.setNamespace(p)} reloadKey={snapshot.reloadKey} />
+    <div className="min-w-0 flex-1 space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Images</h2>
+          <h2 className="text-2xl font-bold">{snapshot.namespace || 'Images'}</h2>
           {!initialLoading && (
             <p className="text-sm text-muted-foreground mt-1">
               {snapshot.total}&nbsp;
@@ -165,10 +178,13 @@ export default function Catalog() {
             <RefreshCw className={`h-4 w-4 ${refetching ? 'animate-spin' : ''}`} />
           </Button>
           <div className="w-full max-w-md">
-            <SearchBar
-              value={snapshot.searchQuery}
-              onChange={vm.setSearchQuery}
-              placeholder="Search images..."
+            <SmartSearchBar
+              value={rawQuery}
+              onChange={(v) => {
+                setRawQuery(v);
+                vm.setSearchQuery(parseGitQuery(v).text);
+              }}
+              onGitSearch={(filters) => navigate(`/search?${new URLSearchParams(filters as Record<string, string>)}`)}
             />
           </div>
         </div>
@@ -242,15 +258,19 @@ export default function Catalog() {
                             makes right-click "open in new tab" work,
                             and the hover treatment telegraphs the
                             affordance (primary color + underline). */}
-                        <Link
-                          to={`/tag-list/${encodeURIComponent(r.repo)}`}
+                        <button
+                          type="button"
+                          title={r.repo}
+                          onClick={() => setOpenRepo(r.repo)}
                           className="group inline-flex items-center gap-2 text-foreground hover:text-primary"
                         >
                           <Package className="h-4 w-4 text-primary shrink-0" />
                           <span className="truncate group-hover:underline underline-offset-4">
-                            {r.repo}
+                            {namespace && r.repo.startsWith(`${namespace}/`)
+                              ? r.repo.slice(namespace.length + 1)
+                              : r.repo}
                           </span>
-                        </Link>
+                        </button>
                       </TableCell>
                       <TableCell
                         className="px-4 font-mono text-sm text-muted-foreground"
@@ -382,6 +402,18 @@ export default function Catalog() {
           </div>
         </div>
       )}
+    </div>
+
+      <Sheet open={openRepo !== null} onOpenChange={(o) => !o && setOpenRepo(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-5xl flex flex-col p-0 data-[state=open]:duration-200 data-[state=closed]:duration-150">
+          <SheetHeader className="px-6 py-4 border-b">
+            <SheetTitle className="font-mono">{openRepo}</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {openRepo && <TagListPanel key={openRepo} image={openRepo} embedded />}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

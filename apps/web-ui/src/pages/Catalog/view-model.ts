@@ -20,6 +20,7 @@ export type SortDirection = OverviewSortDirection;
 interface ViewState {
   items: OverviewItem[];
   total: number;
+  namespace: string;
   searchQuery: string;
   sort: SortField;
   sortDirection: SortDirection;
@@ -27,6 +28,8 @@ interface ViewState {
   pageSize: number;
   loading: boolean;
   error: string | null;
+  /** Bumped on manual refresh so the namespace tree reloads its counts. */
+  reloadKey: number;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -53,6 +56,7 @@ export class CatalogViewModel extends ViewModelBase<ViewState> {
       ...parseCatalogParams(window.location.search),
       loading: true,
       error: null,
+      reloadKey: 0,
     };
   }
 
@@ -75,6 +79,7 @@ export class CatalogViewModel extends ViewModelBase<ViewState> {
         sort: this.data.sort,
         direction: this.data.sortDirection,
         q: this.data.searchQuery || undefined,
+        namespace: this.data.namespace || undefined,
       });
       if (mySeq !== this.reqSeq) return;
       Object.assign(this.data, {
@@ -102,6 +107,13 @@ export class CatalogViewModel extends ViewModelBase<ViewState> {
     this.searchTimer = setTimeout(() => {
       void this.fetch();
     }, SEARCH_DEBOUNCE_MS);
+  }
+
+  setNamespace(namespace: string) {
+    if (namespace === this.data.namespace) return;
+    Object.assign(this.data, { namespace, page: 0 });
+    this.cancelSearchDebounce();
+    void this.fetch();
   }
 
   toggleSort(field: SortField) {
@@ -136,6 +148,7 @@ export class CatalogViewModel extends ViewModelBase<ViewState> {
   }
 
   async refresh() {
+    this.data.reloadKey += 1;
     this.cancelSearchDebounce();
     await this.fetch();
   }

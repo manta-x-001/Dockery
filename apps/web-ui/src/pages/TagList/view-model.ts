@@ -70,6 +70,8 @@ interface ViewState {
   // pagination
   page: number;
   pageSize: number;
+  // tag-name filter (case-insensitive substring)
+  tagQuery: string;
 }
 
 export class TagListViewModel extends ViewModelBase<ViewState> {
@@ -97,6 +99,7 @@ export class TagListViewModel extends ViewModelBase<ViewState> {
       bulkDeleteFailed: [],
       page: 0,
       pageSize: 50,
+      tagQuery: '',
     };
   }
 
@@ -281,10 +284,20 @@ export class TagListViewModel extends ViewModelBase<ViewState> {
     Object.assign(this.data, { pageSize, page: 0 });
   }
 
+  setTagQuery(q: string) {
+    Object.assign(this.data, { tagQuery: q, page: 0 });
+  }
+
+  get filteredCount(): number {
+    const q = this.data.tagQuery.trim().toLowerCase();
+    if (!q) return this.data.tagList.length;
+    return this.data.tagList.filter((t) => t.tag.toLowerCase().includes(q)).length;
+  }
+
   get pageCount(): number {
-    const { tagList, pageSize } = this.data;
+    const { pageSize } = this.data;
     if (pageSize <= 0) return 1;
-    return Math.max(1, Math.ceil(tagList.length / pageSize));
+    return Math.max(1, Math.ceil(this.filteredCount / pageSize));
   }
 
   get pagedTagList(): ImageInfo[] {

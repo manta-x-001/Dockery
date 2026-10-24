@@ -14,6 +14,8 @@
 import type { SortField, SortDirection } from './view-model';
 
 export interface CatalogUrlState {
+  /** Selected namespace path; '' = all images. */
+  namespace: string;
   searchQuery: string;
   sort: SortField;
   sortDirection: SortDirection;
@@ -22,6 +24,7 @@ export interface CatalogUrlState {
 }
 
 export const CATALOG_DEFAULTS: CatalogUrlState = {
+  namespace: '',
   searchQuery: '',
   sort: 'updated',
   sortDirection: 'desc',
@@ -44,6 +47,9 @@ const VALID_SORTS: SortField[] = ['name', 'updated', 'size', 'tags'];
 export function parseCatalogParams(search: string): Partial<CatalogUrlState> {
   const params = new URLSearchParams(search);
   const out: Partial<CatalogUrlState> = {};
+
+  const ns = params.get('ns');
+  if (ns) out.namespace = ns;
 
   const q = params.get('q');
   if (q) out.searchQuery = q;
@@ -79,6 +85,7 @@ export function parseCatalogParams(search: string): Partial<CatalogUrlState> {
  */
 export function serializeCatalogParams(state: CatalogUrlState): URLSearchParams {
   const params = new URLSearchParams();
+  if (state.namespace) params.set('ns', state.namespace);
   if (state.searchQuery) params.set('q', state.searchQuery);
   if (state.sort !== CATALOG_DEFAULTS.sort) params.set('sort', state.sort);
   if (state.sortDirection !== CATALOG_DEFAULTS.sortDirection) {
