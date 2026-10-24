@@ -50,6 +50,7 @@ func newApp(
 	policy *biz.RegistryPolicyBiz,
 	meta *biz.RepoMetaUsecase,
 	reconciler *biz.Reconciler,
+	backup *biz.BackupUsecase,
 	dockery *conf.Dockery,
 ) *kratos.App {
 	adminUser := dockery.Admin.Username
@@ -79,6 +80,7 @@ func newApp(
 	// distribution has a chance to finish startup, then runs on a
 	// 30-min ticker. No effect on HTTP readiness.
 	reconciler.Start()
+	backup.Start()
 
 	return kratos.New(
 		kratos.ID(id),
@@ -92,6 +94,7 @@ func newApp(
 		// is draining.
 		kratos.AfterStop(func(context.Context) error {
 			reconciler.Stop()
+			backup.Stop()
 			meta.Close()
 			return nil
 		}),

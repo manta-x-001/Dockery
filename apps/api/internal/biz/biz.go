@@ -34,5 +34,10 @@ var ProviderSet = wire.NewSet(
 	NewRepoMetaUsecase,
 	NewRegistryPolicyBiz,
 	NewReconcilerConfigFromConf,
+	NewBackupConfigFromConf,
+	NewBackupStore,
+	NewBackupUsecase,
 	NewReconciler,
+	NewNamespaceUsecase,
+	NewImageIndexUsecase,
 )

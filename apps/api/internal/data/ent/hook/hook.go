@@ -20,6 +20,30 @@ func (f AuditLogFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AuditLogMutation", m)
 }
 
+// The ImageIndexFunc type is an adapter to allow the use of ordinary
+// function as ImageIndex mutator.
+type ImageIndexFunc func(context.Context, *ent.ImageIndexMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ImageIndexFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ImageIndexMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ImageIndexMutation", m)
+}
+
+// The NamespaceFunc type is an adapter to allow the use of ordinary
+// function as Namespace mutator.
+type NamespaceFunc func(context.Context, *ent.NamespaceMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f NamespaceFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.NamespaceMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.NamespaceMutation", m)
+}
+
 // The RepoMetaFunc type is an adapter to allow the use of ordinary
 // function as RepoMeta mutator.
 type RepoMetaFunc func(context.Context, *ent.RepoMetaMutation) (ent.Value, error)

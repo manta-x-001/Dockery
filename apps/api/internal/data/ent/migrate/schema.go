@@ -44,6 +44,77 @@ var (
 			},
 		},
 	}
+	// ImageIndexesColumns holds the columns for the "image_indexes" table.
+	ImageIndexesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "repo", Type: field.TypeString},
+		{Name: "tag", Type: field.TypeString},
+		{Name: "digest", Type: field.TypeString},
+		{Name: "git_repo", Type: field.TypeString, Default: ""},
+		{Name: "git_repo_norm", Type: field.TypeString, Default: ""},
+		{Name: "git_commit", Type: field.TypeString, Default: ""},
+		{Name: "git_branch", Type: field.TypeString, Default: ""},
+		{Name: "git_tag", Type: field.TypeString, Default: ""},
+		{Name: "git_hash", Type: field.TypeString, Default: ""},
+		{Name: "indexed_at", Type: field.TypeTime},
+	}
+	// ImageIndexesTable holds the schema information for the "image_indexes" table.
+	ImageIndexesTable = &schema.Table{
+		Name:       "image_indexes",
+		Columns:    ImageIndexesColumns,
+		PrimaryKey: []*schema.Column{ImageIndexesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "imageindex_repo_tag",
+				Unique:  true,
+				Columns: []*schema.Column{ImageIndexesColumns[1], ImageIndexesColumns[2]},
+			},
+			{
+				Name:    "imageindex_digest",
+				Unique:  false,
+				Columns: []*schema.Column{ImageIndexesColumns[3]},
+			},
+			{
+				Name:    "imageindex_git_repo_norm",
+				Unique:  false,
+				Columns: []*schema.Column{ImageIndexesColumns[5]},
+			},
+			{
+				Name:    "imageindex_git_commit",
+				Unique:  false,
+				Columns: []*schema.Column{ImageIndexesColumns[6]},
+			},
+			{
+				Name:    "imageindex_git_hash",
+				Unique:  false,
+				Columns: []*schema.Column{ImageIndexesColumns[9]},
+			},
+			{
+				Name:    "imageindex_git_branch",
+				Unique:  false,
+				Columns: []*schema.Column{ImageIndexesColumns[7]},
+			},
+			{
+				Name:    "imageindex_git_tag",
+				Unique:  false,
+				Columns: []*schema.Column{ImageIndexesColumns[8]},
+			},
+		},
+	}
+	// NamespacesColumns holds the columns for the "namespaces" table.
+	NamespacesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "path", Type: field.TypeString, Unique: true},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "created_by", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// NamespacesTable holds the schema information for the "namespaces" table.
+	NamespacesTable = &schema.Table{
+		Name:       "namespaces",
+		Columns:    NamespacesColumns,
+		PrimaryKey: []*schema.Column{NamespacesColumns[0]},
+	}
 	// RepoMetaColumns holds the columns for the "repo_meta" table.
 	RepoMetaColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -159,6 +230,8 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AuditLogsTable,
+		ImageIndexesTable,
+		NamespacesTable,
 		RepoMetaTable,
 		RepoPermissionsTable,
 		SystemSettingsTable,

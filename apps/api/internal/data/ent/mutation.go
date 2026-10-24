@@ -4,6 +4,8 @@ package ent
 
 import (
 	"api/internal/data/ent/auditlog"
+	"api/internal/data/ent/imageindex"
+	"api/internal/data/ent/namespace"
 	"api/internal/data/ent/predicate"
 	"api/internal/data/ent/repometa"
 	"api/internal/data/ent/repopermission"
@@ -31,6 +33,8 @@ const (
 
 	// Node types.
 	TypeAuditLog       = "AuditLog"
+	TypeImageIndex     = "ImageIndex"
+	TypeNamespace      = "Namespace"
 	TypeRepoMeta       = "RepoMeta"
 	TypeRepoPermission = "RepoPermission"
 	TypeSystemSetting  = "SystemSetting"
@@ -818,6 +822,1347 @@ func (m *AuditLogMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *AuditLogMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown AuditLog edge %s", name)
+}
+
+// ImageIndexMutation represents an operation that mutates the ImageIndex nodes in the graph.
+type ImageIndexMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int
+	repo          *string
+	tag           *string
+	digest        *string
+	git_repo      *string
+	git_repo_norm *string
+	git_commit    *string
+	git_branch    *string
+	git_tag       *string
+	git_hash      *string
+	indexed_at    *time.Time
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*ImageIndex, error)
+	predicates    []predicate.ImageIndex
+}
+
+var _ ent.Mutation = (*ImageIndexMutation)(nil)
+
+// imageindexOption allows management of the mutation configuration using functional options.
+type imageindexOption func(*ImageIndexMutation)
+
+// newImageIndexMutation creates new mutation for the ImageIndex entity.
+func newImageIndexMutation(c config, op Op, opts ...imageindexOption) *ImageIndexMutation {
+	m := &ImageIndexMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeImageIndex,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withImageIndexID sets the ID field of the mutation.
+func withImageIndexID(id int) imageindexOption {
+	return func(m *ImageIndexMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ImageIndex
+		)
+		m.oldValue = func(ctx context.Context) (*ImageIndex, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ImageIndex.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withImageIndex sets the old ImageIndex of the mutation.
+func withImageIndex(node *ImageIndex) imageindexOption {
+	return func(m *ImageIndexMutation) {
+		m.oldValue = func(context.Context) (*ImageIndex, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ImageIndexMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ImageIndexMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ImageIndexMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ImageIndexMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ImageIndex.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetRepo sets the "repo" field.
+func (m *ImageIndexMutation) SetRepo(s string) {
+	m.repo = &s
+}
+
+// Repo returns the value of the "repo" field in the mutation.
+func (m *ImageIndexMutation) Repo() (r string, exists bool) {
+	v := m.repo
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRepo returns the old "repo" field's value of the ImageIndex entity.
+// If the ImageIndex object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageIndexMutation) OldRepo(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRepo is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRepo requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRepo: %w", err)
+	}
+	return oldValue.Repo, nil
+}
+
+// ResetRepo resets all changes to the "repo" field.
+func (m *ImageIndexMutation) ResetRepo() {
+	m.repo = nil
+}
+
+// SetTag sets the "tag" field.
+func (m *ImageIndexMutation) SetTag(s string) {
+	m.tag = &s
+}
+
+// Tag returns the value of the "tag" field in the mutation.
+func (m *ImageIndexMutation) Tag() (r string, exists bool) {
+	v := m.tag
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTag returns the old "tag" field's value of the ImageIndex entity.
+// If the ImageIndex object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageIndexMutation) OldTag(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTag is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTag requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTag: %w", err)
+	}
+	return oldValue.Tag, nil
+}
+
+// ResetTag resets all changes to the "tag" field.
+func (m *ImageIndexMutation) ResetTag() {
+	m.tag = nil
+}
+
+// SetDigest sets the "digest" field.
+func (m *ImageIndexMutation) SetDigest(s string) {
+	m.digest = &s
+}
+
+// Digest returns the value of the "digest" field in the mutation.
+func (m *ImageIndexMutation) Digest() (r string, exists bool) {
+	v := m.digest
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDigest returns the old "digest" field's value of the ImageIndex entity.
+// If the ImageIndex object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageIndexMutation) OldDigest(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDigest is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDigest requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDigest: %w", err)
+	}
+	return oldValue.Digest, nil
+}
+
+// ResetDigest resets all changes to the "digest" field.
+func (m *ImageIndexMutation) ResetDigest() {
+	m.digest = nil
+}
+
+// SetGitRepo sets the "git_repo" field.
+func (m *ImageIndexMutation) SetGitRepo(s string) {
+	m.git_repo = &s
+}
+
+// GitRepo returns the value of the "git_repo" field in the mutation.
+func (m *ImageIndexMutation) GitRepo() (r string, exists bool) {
+	v := m.git_repo
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGitRepo returns the old "git_repo" field's value of the ImageIndex entity.
+// If the ImageIndex object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageIndexMutation) OldGitRepo(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGitRepo is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGitRepo requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGitRepo: %w", err)
+	}
+	return oldValue.GitRepo, nil
+}
+
+// ResetGitRepo resets all changes to the "git_repo" field.
+func (m *ImageIndexMutation) ResetGitRepo() {
+	m.git_repo = nil
+}
+
+// SetGitRepoNorm sets the "git_repo_norm" field.
+func (m *ImageIndexMutation) SetGitRepoNorm(s string) {
+	m.git_repo_norm = &s
+}
+
+// GitRepoNorm returns the value of the "git_repo_norm" field in the mutation.
+func (m *ImageIndexMutation) GitRepoNorm() (r string, exists bool) {
+	v := m.git_repo_norm
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGitRepoNorm returns the old "git_repo_norm" field's value of the ImageIndex entity.
+// If the ImageIndex object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageIndexMutation) OldGitRepoNorm(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGitRepoNorm is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGitRepoNorm requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGitRepoNorm: %w", err)
+	}
+	return oldValue.GitRepoNorm, nil
+}
+
+// ResetGitRepoNorm resets all changes to the "git_repo_norm" field.
+func (m *ImageIndexMutation) ResetGitRepoNorm() {
+	m.git_repo_norm = nil
+}
+
+// SetGitCommit sets the "git_commit" field.
+func (m *ImageIndexMutation) SetGitCommit(s string) {
+	m.git_commit = &s
+}
+
+// GitCommit returns the value of the "git_commit" field in the mutation.
+func (m *ImageIndexMutation) GitCommit() (r string, exists bool) {
+	v := m.git_commit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGitCommit returns the old "git_commit" field's value of the ImageIndex entity.
+// If the ImageIndex object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageIndexMutation) OldGitCommit(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGitCommit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGitCommit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGitCommit: %w", err)
+	}
+	return oldValue.GitCommit, nil
+}
+
+// ResetGitCommit resets all changes to the "git_commit" field.
+func (m *ImageIndexMutation) ResetGitCommit() {
+	m.git_commit = nil
+}
+
+// SetGitBranch sets the "git_branch" field.
+func (m *ImageIndexMutation) SetGitBranch(s string) {
+	m.git_branch = &s
+}
+
+// GitBranch returns the value of the "git_branch" field in the mutation.
+func (m *ImageIndexMutation) GitBranch() (r string, exists bool) {
+	v := m.git_branch
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGitBranch returns the old "git_branch" field's value of the ImageIndex entity.
+// If the ImageIndex object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageIndexMutation) OldGitBranch(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGitBranch is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGitBranch requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGitBranch: %w", err)
+	}
+	return oldValue.GitBranch, nil
+}
+
+// ResetGitBranch resets all changes to the "git_branch" field.
+func (m *ImageIndexMutation) ResetGitBranch() {
+	m.git_branch = nil
+}
+
+// SetGitTag sets the "git_tag" field.
+func (m *ImageIndexMutation) SetGitTag(s string) {
+	m.git_tag = &s
+}
+
+// GitTag returns the value of the "git_tag" field in the mutation.
+func (m *ImageIndexMutation) GitTag() (r string, exists bool) {
+	v := m.git_tag
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGitTag returns the old "git_tag" field's value of the ImageIndex entity.
+// If the ImageIndex object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageIndexMutation) OldGitTag(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGitTag is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGitTag requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGitTag: %w", err)
+	}
+	return oldValue.GitTag, nil
+}
+
+// ResetGitTag resets all changes to the "git_tag" field.
+func (m *ImageIndexMutation) ResetGitTag() {
+	m.git_tag = nil
+}
+
+// SetGitHash sets the "git_hash" field.
+func (m *ImageIndexMutation) SetGitHash(s string) {
+	m.git_hash = &s
+}
+
+// GitHash returns the value of the "git_hash" field in the mutation.
+func (m *ImageIndexMutation) GitHash() (r string, exists bool) {
+	v := m.git_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGitHash returns the old "git_hash" field's value of the ImageIndex entity.
+// If the ImageIndex object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageIndexMutation) OldGitHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGitHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGitHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGitHash: %w", err)
+	}
+	return oldValue.GitHash, nil
+}
+
+// ResetGitHash resets all changes to the "git_hash" field.
+func (m *ImageIndexMutation) ResetGitHash() {
+	m.git_hash = nil
+}
+
+// SetIndexedAt sets the "indexed_at" field.
+func (m *ImageIndexMutation) SetIndexedAt(t time.Time) {
+	m.indexed_at = &t
+}
+
+// IndexedAt returns the value of the "indexed_at" field in the mutation.
+func (m *ImageIndexMutation) IndexedAt() (r time.Time, exists bool) {
+	v := m.indexed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIndexedAt returns the old "indexed_at" field's value of the ImageIndex entity.
+// If the ImageIndex object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageIndexMutation) OldIndexedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIndexedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIndexedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIndexedAt: %w", err)
+	}
+	return oldValue.IndexedAt, nil
+}
+
+// ResetIndexedAt resets all changes to the "indexed_at" field.
+func (m *ImageIndexMutation) ResetIndexedAt() {
+	m.indexed_at = nil
+}
+
+// Where appends a list predicates to the ImageIndexMutation builder.
+func (m *ImageIndexMutation) Where(ps ...predicate.ImageIndex) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ImageIndexMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ImageIndexMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ImageIndex, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ImageIndexMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ImageIndexMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ImageIndex).
+func (m *ImageIndexMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ImageIndexMutation) Fields() []string {
+	fields := make([]string, 0, 10)
+	if m.repo != nil {
+		fields = append(fields, imageindex.FieldRepo)
+	}
+	if m.tag != nil {
+		fields = append(fields, imageindex.FieldTag)
+	}
+	if m.digest != nil {
+		fields = append(fields, imageindex.FieldDigest)
+	}
+	if m.git_repo != nil {
+		fields = append(fields, imageindex.FieldGitRepo)
+	}
+	if m.git_repo_norm != nil {
+		fields = append(fields, imageindex.FieldGitRepoNorm)
+	}
+	if m.git_commit != nil {
+		fields = append(fields, imageindex.FieldGitCommit)
+	}
+	if m.git_branch != nil {
+		fields = append(fields, imageindex.FieldGitBranch)
+	}
+	if m.git_tag != nil {
+		fields = append(fields, imageindex.FieldGitTag)
+	}
+	if m.git_hash != nil {
+		fields = append(fields, imageindex.FieldGitHash)
+	}
+	if m.indexed_at != nil {
+		fields = append(fields, imageindex.FieldIndexedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ImageIndexMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case imageindex.FieldRepo:
+		return m.Repo()
+	case imageindex.FieldTag:
+		return m.Tag()
+	case imageindex.FieldDigest:
+		return m.Digest()
+	case imageindex.FieldGitRepo:
+		return m.GitRepo()
+	case imageindex.FieldGitRepoNorm:
+		return m.GitRepoNorm()
+	case imageindex.FieldGitCommit:
+		return m.GitCommit()
+	case imageindex.FieldGitBranch:
+		return m.GitBranch()
+	case imageindex.FieldGitTag:
+		return m.GitTag()
+	case imageindex.FieldGitHash:
+		return m.GitHash()
+	case imageindex.FieldIndexedAt:
+		return m.IndexedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ImageIndexMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case imageindex.FieldRepo:
+		return m.OldRepo(ctx)
+	case imageindex.FieldTag:
+		return m.OldTag(ctx)
+	case imageindex.FieldDigest:
+		return m.OldDigest(ctx)
+	case imageindex.FieldGitRepo:
+		return m.OldGitRepo(ctx)
+	case imageindex.FieldGitRepoNorm:
+		return m.OldGitRepoNorm(ctx)
+	case imageindex.FieldGitCommit:
+		return m.OldGitCommit(ctx)
+	case imageindex.FieldGitBranch:
+		return m.OldGitBranch(ctx)
+	case imageindex.FieldGitTag:
+		return m.OldGitTag(ctx)
+	case imageindex.FieldGitHash:
+		return m.OldGitHash(ctx)
+	case imageindex.FieldIndexedAt:
+		return m.OldIndexedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ImageIndex field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ImageIndexMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case imageindex.FieldRepo:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRepo(v)
+		return nil
+	case imageindex.FieldTag:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTag(v)
+		return nil
+	case imageindex.FieldDigest:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDigest(v)
+		return nil
+	case imageindex.FieldGitRepo:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGitRepo(v)
+		return nil
+	case imageindex.FieldGitRepoNorm:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGitRepoNorm(v)
+		return nil
+	case imageindex.FieldGitCommit:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGitCommit(v)
+		return nil
+	case imageindex.FieldGitBranch:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGitBranch(v)
+		return nil
+	case imageindex.FieldGitTag:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGitTag(v)
+		return nil
+	case imageindex.FieldGitHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGitHash(v)
+		return nil
+	case imageindex.FieldIndexedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIndexedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ImageIndex field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ImageIndexMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ImageIndexMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ImageIndexMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ImageIndex numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ImageIndexMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ImageIndexMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ImageIndexMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown ImageIndex nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ImageIndexMutation) ResetField(name string) error {
+	switch name {
+	case imageindex.FieldRepo:
+		m.ResetRepo()
+		return nil
+	case imageindex.FieldTag:
+		m.ResetTag()
+		return nil
+	case imageindex.FieldDigest:
+		m.ResetDigest()
+		return nil
+	case imageindex.FieldGitRepo:
+		m.ResetGitRepo()
+		return nil
+	case imageindex.FieldGitRepoNorm:
+		m.ResetGitRepoNorm()
+		return nil
+	case imageindex.FieldGitCommit:
+		m.ResetGitCommit()
+		return nil
+	case imageindex.FieldGitBranch:
+		m.ResetGitBranch()
+		return nil
+	case imageindex.FieldGitTag:
+		m.ResetGitTag()
+		return nil
+	case imageindex.FieldGitHash:
+		m.ResetGitHash()
+		return nil
+	case imageindex.FieldIndexedAt:
+		m.ResetIndexedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ImageIndex field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ImageIndexMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ImageIndexMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ImageIndexMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ImageIndexMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ImageIndexMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ImageIndexMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ImageIndexMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown ImageIndex unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ImageIndexMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown ImageIndex edge %s", name)
+}
+
+// NamespaceMutation represents an operation that mutates the Namespace nodes in the graph.
+type NamespaceMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int
+	_path         *string
+	description   *string
+	created_by    *string
+	created_at    *time.Time
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*Namespace, error)
+	predicates    []predicate.Namespace
+}
+
+var _ ent.Mutation = (*NamespaceMutation)(nil)
+
+// namespaceOption allows management of the mutation configuration using functional options.
+type namespaceOption func(*NamespaceMutation)
+
+// newNamespaceMutation creates new mutation for the Namespace entity.
+func newNamespaceMutation(c config, op Op, opts ...namespaceOption) *NamespaceMutation {
+	m := &NamespaceMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeNamespace,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withNamespaceID sets the ID field of the mutation.
+func withNamespaceID(id int) namespaceOption {
+	return func(m *NamespaceMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Namespace
+		)
+		m.oldValue = func(ctx context.Context) (*Namespace, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Namespace.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withNamespace sets the old Namespace of the mutation.
+func withNamespace(node *Namespace) namespaceOption {
+	return func(m *NamespaceMutation) {
+		m.oldValue = func(context.Context) (*Namespace, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m NamespaceMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m NamespaceMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *NamespaceMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *NamespaceMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Namespace.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetPath sets the "path" field.
+func (m *NamespaceMutation) SetPath(s string) {
+	m._path = &s
+}
+
+// Path returns the value of the "path" field in the mutation.
+func (m *NamespaceMutation) Path() (r string, exists bool) {
+	v := m._path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPath returns the old "path" field's value of the Namespace entity.
+// If the Namespace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *NamespaceMutation) OldPath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPath: %w", err)
+	}
+	return oldValue.Path, nil
+}
+
+// ResetPath resets all changes to the "path" field.
+func (m *NamespaceMutation) ResetPath() {
+	m._path = nil
+}
+
+// SetDescription sets the "description" field.
+func (m *NamespaceMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *NamespaceMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the Namespace entity.
+// If the Namespace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *NamespaceMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ClearDescription clears the value of the "description" field.
+func (m *NamespaceMutation) ClearDescription() {
+	m.description = nil
+	m.clearedFields[namespace.FieldDescription] = struct{}{}
+}
+
+// DescriptionCleared returns if the "description" field was cleared in this mutation.
+func (m *NamespaceMutation) DescriptionCleared() bool {
+	_, ok := m.clearedFields[namespace.FieldDescription]
+	return ok
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *NamespaceMutation) ResetDescription() {
+	m.description = nil
+	delete(m.clearedFields, namespace.FieldDescription)
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (m *NamespaceMutation) SetCreatedBy(s string) {
+	m.created_by = &s
+}
+
+// CreatedBy returns the value of the "created_by" field in the mutation.
+func (m *NamespaceMutation) CreatedBy() (r string, exists bool) {
+	v := m.created_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedBy returns the old "created_by" field's value of the Namespace entity.
+// If the Namespace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *NamespaceMutation) OldCreatedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
+	}
+	return oldValue.CreatedBy, nil
+}
+
+// ClearCreatedBy clears the value of the "created_by" field.
+func (m *NamespaceMutation) ClearCreatedBy() {
+	m.created_by = nil
+	m.clearedFields[namespace.FieldCreatedBy] = struct{}{}
+}
+
+// CreatedByCleared returns if the "created_by" field was cleared in this mutation.
+func (m *NamespaceMutation) CreatedByCleared() bool {
+	_, ok := m.clearedFields[namespace.FieldCreatedBy]
+	return ok
+}
+
+// ResetCreatedBy resets all changes to the "created_by" field.
+func (m *NamespaceMutation) ResetCreatedBy() {
+	m.created_by = nil
+	delete(m.clearedFields, namespace.FieldCreatedBy)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *NamespaceMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *NamespaceMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Namespace entity.
+// If the Namespace object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *NamespaceMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *NamespaceMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the NamespaceMutation builder.
+func (m *NamespaceMutation) Where(ps ...predicate.Namespace) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the NamespaceMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *NamespaceMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Namespace, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *NamespaceMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *NamespaceMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Namespace).
+func (m *NamespaceMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *NamespaceMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m._path != nil {
+		fields = append(fields, namespace.FieldPath)
+	}
+	if m.description != nil {
+		fields = append(fields, namespace.FieldDescription)
+	}
+	if m.created_by != nil {
+		fields = append(fields, namespace.FieldCreatedBy)
+	}
+	if m.created_at != nil {
+		fields = append(fields, namespace.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *NamespaceMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case namespace.FieldPath:
+		return m.Path()
+	case namespace.FieldDescription:
+		return m.Description()
+	case namespace.FieldCreatedBy:
+		return m.CreatedBy()
+	case namespace.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *NamespaceMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case namespace.FieldPath:
+		return m.OldPath(ctx)
+	case namespace.FieldDescription:
+		return m.OldDescription(ctx)
+	case namespace.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
+	case namespace.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Namespace field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *NamespaceMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case namespace.FieldPath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPath(v)
+		return nil
+	case namespace.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case namespace.FieldCreatedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedBy(v)
+		return nil
+	case namespace.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Namespace field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *NamespaceMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *NamespaceMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *NamespaceMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Namespace numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *NamespaceMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(namespace.FieldDescription) {
+		fields = append(fields, namespace.FieldDescription)
+	}
+	if m.FieldCleared(namespace.FieldCreatedBy) {
+		fields = append(fields, namespace.FieldCreatedBy)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *NamespaceMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *NamespaceMutation) ClearField(name string) error {
+	switch name {
+	case namespace.FieldDescription:
+		m.ClearDescription()
+		return nil
+	case namespace.FieldCreatedBy:
+		m.ClearCreatedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown Namespace nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *NamespaceMutation) ResetField(name string) error {
+	switch name {
+	case namespace.FieldPath:
+		m.ResetPath()
+		return nil
+	case namespace.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case namespace.FieldCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case namespace.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Namespace field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *NamespaceMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *NamespaceMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *NamespaceMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *NamespaceMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *NamespaceMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *NamespaceMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *NamespaceMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown Namespace unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *NamespaceMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown Namespace edge %s", name)
 }
 
 // RepoMetaMutation represents an operation that mutates the RepoMeta nodes in the graph.

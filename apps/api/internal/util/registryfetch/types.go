@@ -106,6 +106,25 @@ type ConfigBlob struct {
 	Architecture string `json:"architecture"`
 	Os           string `json:"os"`
 	Created      string `json:"created"`
+	// Labels come from the Dockerfile LABEL instructions. Builders put
+	// them under `config`; older Docker versions also mirrored them in
+	// `container_config`.
+	Config          LabelHolder `json:"config"`
+	ContainerConfig LabelHolder `json:"container_config"`
+}
+
+// LabelHolder is the `config` / `container_config` object, reduced to
+// the one field we read.
+type LabelHolder struct {
+	Labels map[string]string `json:"Labels"`
+}
+
+// ImageLabels returns the image's labels, preferring `config`.
+func (c *ConfigBlob) ImageLabels() map[string]string {
+	if len(c.Config.Labels) > 0 {
+		return c.Config.Labels
+	}
+	return c.ContainerConfig.Labels
 }
 
 // ChildMeta is the result of walking one manifest-list entry: the

@@ -18,6 +18,18 @@ type Dockery struct {
 	Webhook    DockeryWebhook    `json:"webhook"    yaml:"webhook"`
 	Registry   DockeryRegistry   `json:"registry"   yaml:"registry"`
 	Reconciler DockeryReconciler `json:"reconciler" yaml:"reconciler"`
+	Backup     DockeryBackup     `json:"backup"     yaml:"backup"`
+}
+
+// DockeryBackup configures the scheduled backup of users, password hashes,
+// permissions and namespaces into the registry's own storage. The optional
+// encryption passphrase comes from DOCKERY_BACKUP_PASSPHRASE, not from yaml.
+type DockeryBackup struct {
+	Disabled      bool `json:"disabled"       yaml:"disabled"`
+	IntervalHours int  `json:"interval_hours" yaml:"interval_hours"` // default 24
+	Keep          int  `json:"keep"           yaml:"keep"`           // default 14
+	// Dir is used when the registry storage is not S3.
+	Dir string `json:"dir" yaml:"dir"`
 }
 
 // DockeryKeystore is the filesystem location of the Ed25519 signing

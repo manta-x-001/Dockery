@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -14,12 +15,69 @@ import (
 // operations (GC, key rotation — the latter still M4) and audit log
 // queries.
 type AdminService struct {
-	audit *biz.AuditUsecase
-	gc    *biz.GCRunner
+	audit  *biz.AuditUsecase
+	gc     *biz.GCRunner
+	index  *biz.ImageIndexUsecase
+	backup *biz.BackupUsecase
 }
 
-func NewAdminService(audit *biz.AuditUsecase, gc *biz.GCRunner) *AdminService {
-	return &AdminService{audit: audit, gc: gc}
+func NewAdminService(audit *biz.AuditUsecase, gc *biz.GCRunner, index *biz.ImageIndexUsecase, backup *biz.BackupUsecase) *AdminService {
+	return &AdminService{audit: audit, gc: gc, index: index, backup: backup}
+}
+
+// RunBackup takes a database backup now.
+func (s *AdminService) RunBackup(ctx *router.Context) error {
+	res, err := s.backup.Run(ctx.Context(), sessionUsername(ctx))
+	if err != nil {
+		return response.NewBizError(http.StatusBadGateway, 50201, "backup failed: "+err.Error())
+	}
+	return ctx.Success(res)
+}
+
+// ListBackups lists stored backups, newest first.
+func (s *AdminService) ListBackups(ctx *router.Context) error {
+	items, err := s.backup.List(ctx.Context())
+	if err != nil {
+		return response.NewBizError(http.StatusBadGateway, 50201, err.Error())
+	}
+	return ctx.Success(map[string]any{"items": items})
+}
+
+type restoreBackupRequest struct {
+	// Name is a backup name from the list; empty = newest.
+	Name string `json:"name"`
+}
+
+// RestoreBackup merges a stored backup (default: latest) into the database.
+func (s *AdminService) RestoreBackup(ctx *router.Context) error {
+	var req restoreBackupRequest
+	_ = ctx.Bind(&req) // empty body = latest
+	res, err := s.backup.Restore(ctx.Context(), req.Name, sessionUsername(ctx))
+	switch {
+	case errors.Is(err, biz.ErrBackupNotFound):
+		return response.NewBizError(http.StatusNotFound, 40401, "backup not found")
+	case errors.Is(err, biz.ErrBackupNeedsPass), errors.Is(err, biz.ErrBackupBadPass):
+		return response.NewBizError(http.StatusUnprocessableEntity, 42201, err.Error())
+	case err != nil:
+		return response.NewBizError(http.StatusBadGateway, 50201, err.Error())
+	}
+	return ctx.Success(res)
+}
+
+// RebuildImageIndex re-derives image_index from registry storage in the
+// background and returns immediately; large registries take a while.
+func (s *AdminService) RebuildImageIndex(ctx *router.Context) error {
+	actor, ip := sessionUsername(ctx), ctx.ClientIP()
+	go func() {
+		bg := context.Background()
+		n, err := s.index.Rebuild(bg)
+		detail := map[string]any{"repos": n}
+		if err != nil {
+			detail["error"] = err.Error()
+		}
+		s.audit.Write(bg, biz.AuditEntry{Actor: actor, Action: biz.ActionImageIndexRebuilt, ClientIP: ip, Success: err == nil, Detail: detail})
+	}()
+	return ctx.Success(map[string]any{"started": true})
 }
 
 // --- DTOs ---

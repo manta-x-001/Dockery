@@ -2,6 +2,8 @@ package registryfetch
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -74,15 +76,30 @@ func (c *Client) Tags(ctx context.Context, repo string) ([]string, error) {
 // header so registry hands back the richest format (manifest list or
 // v2) rather than downconverting.
 func (c *Client) Manifest(ctx context.Context, repo, ref string) (*Manifest, error) {
-	body, err := c.get(ctx, repo, fmt.Sprintf("/v2/%s/manifests/%s", repo, ref), ManifestAcceptHeader)
+	m, _, err := c.ManifestWithDigest(ctx, repo, ref)
+	return m, err
+}
+
+// ManifestWithDigest is Manifest plus the content digest of the bytes
+// served, taken from Docker-Content-Digest or, if the registry omits
+// it, computed from the body.
+func (c *Client) ManifestWithDigest(ctx context.Context, repo, ref string) (*Manifest, string, error) {
+	body, hdr, err := c.do(ctx, fmt.Sprintf("/v2/%s/manifests/%s", repo, ref), ManifestAcceptHeader, []Access{
+		{Type: "repository", Name: repo, Actions: []string{"pull"}},
+	})
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	var m Manifest
 	if err := json.Unmarshal(body, &m); err != nil {
-		return nil, fmt.Errorf("parse manifest: %w", err)
+		return nil, "", fmt.Errorf("parse manifest: %w", err)
 	}
-	return &m, nil
+	digest := hdr.Get("Docker-Content-Digest")
+	if digest == "" {
+		sum := sha256.Sum256(body)
+		digest = "sha256:" + hex.EncodeToString(sum[:])
+	}
+	return &m, digest, nil
 }
 
 // ConfigBlob fetches /v2/<name>/blobs/<digest> for an image config

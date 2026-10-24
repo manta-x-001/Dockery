@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"api/internal/util/backupstore"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -34,15 +35,40 @@ import (
 // httptest.Close forcibly tears down every connection, so teardown is
 // deterministic. Each harness uses its own temp SQLite file.
 type harness struct {
-	t       *testing.T
-	baseURL string
-	client  *http.Client
-	users   *biz.UserUsecase
-	policy  *biz.RegistryPolicyBiz
-	stop    func()
+	t         *testing.T
+	baseURL   string
+	client    *http.Client
+	users     *biz.UserUsecase
+	policy    *biz.RegistryPolicyBiz
+	index     *biz.ImageIndexUsecase
+	backup    *biz.BackupUsecase
+	backupDir string
+	perms     *biz.PermissionUsecase
+	stop      func()
 }
 
 func newHarness(t *testing.T) *harness {
+	t.Helper()
+	return newHarnessWithUpstream(t, "http://127.0.0.1:1")
+}
+
+// newHarnessWithUpstream points the registry fetch client at a fake
+// upstream, for tests that exercise manifest/config reads.
+// harnessBackupPass lets a test turn on backup encryption for harnesses
+// built after it is set.
+var harnessBackupPass string
+
+func newHarnessWithUpstream(t *testing.T, upstreamURL string) *harness {
+	return newHarnessFull(t, upstreamURL, t.TempDir())
+}
+
+// newHarnessWithBackupDir shares a backup directory between harnesses, to
+// simulate a database lost while backup storage survives.
+func newHarnessWithBackupDir(t *testing.T, dir string) *harness {
+	return newHarnessFull(t, "http://127.0.0.1:1", dir)
+}
+
+func newHarnessFull(t *testing.T, upstreamURL, backupDir string) *harness {
 	t.Helper()
 
 	logger := log.NewStdLogger(io.Discard)
@@ -92,10 +118,13 @@ func newHarness(t *testing.T) *harness {
 	gcRunner := biz.NewGCRunner(biz.GCConfig{}, maint, auditUC, nil, nil, logger)
 	// Fake upstream URL — the cache-backed Overview handler doesn't dial
 	// anything, and the reconciler / webhook path is not exercised here.
-	upstream := biz.RegistryUpstreamURL("http://127.0.0.1:1")
+	upstream := biz.RegistryUpstreamURL(upstreamURL)
 	fetcher := biz.NewRegistryFetchClient(iss, upstream)
 	metaUC := biz.NewRepoMetaUsecase(repoMetaRepo, fetcher, logger)
 	t.Cleanup(metaUC.Close)
+	indexUC := biz.NewImageIndexUsecase(data.NewImageIndexRepo(d), fetcher, metaUC, logger)
+	backupUC := biz.NewBackupUsecase(userRepo, permRepo, data.NewNamespaceRepo(d), backupstore.NewFS(backupDir), auditUC, biz.BackupConfig{Keep: 2, Passphrase: harnessBackupPass}, logger)
+	nsUC := biz.NewNamespaceUsecase(data.NewNamespaceRepo(d), metaUC, permUC)
 	whSecret, err := biz.NewWebhookSecret(biz.WebhookSecretConfig{
 		Path: filepath.Join(keyDir, "webhook-secret"),
 	})
@@ -112,8 +141,10 @@ func newHarness(t *testing.T) *harness {
 		RegistryPolicy: service.NewRegistryPolicyService(policyBiz, auditUC),
 		TagGuard:       service.NewTagGuardService(policyBiz, iss, auditUC, upstream, "http://dockery.test/token"),
 		Token:          service.NewTokenService(userUC, permUC, iss, auditUC),
-		Admin:          service.NewAdminService(auditUC, gcRunner),
-		Webhook:        service.NewWebhookService(whSecret, metaUC),
+		Admin:          service.NewAdminService(auditUC, gcRunner, indexUC, backupUC),
+		Webhook:        service.NewWebhookService(whSecret, metaUC, indexUC),
+		Namespace:      service.NewNamespaceService(nsUC, permUC, userUC, auditUC),
+		ImageSearch:    service.NewImageSearchService(indexUC, userUC, permUC),
 	}
 
 	// We still build a kratos http.Server for its option chain
@@ -144,11 +175,15 @@ func newHarness(t *testing.T) *harness {
 	client.Jar = jar
 
 	return &harness{
-		t:       t,
-		baseURL: testSrv.URL,
-		client:  client,
-		users:   userUC,
-		policy:  policyBiz,
+		t:         t,
+		baseURL:   testSrv.URL,
+		client:    client,
+		users:     userUC,
+		policy:    policyBiz,
+		index:     indexUC,
+		backup:    backupUC,
+		backupDir: backupDir,
+		perms:     permUC,
 		stop: func() {
 			testSrv.Close()
 			cleanup()

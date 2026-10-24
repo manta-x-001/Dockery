@@ -134,6 +134,9 @@ func (r *repoMetaRepo) QueryPage(ctx context.Context, f biz.OverviewFilter) (*bi
 	if f.Query != "" {
 		base = base.Where(repometa.RepoContainsFold(f.Query))
 	}
+	if f.Namespace != "" {
+		base = base.Where(repometa.RepoHasPrefix(f.Namespace + "/"))
+	}
 	// Count is cheap over the indexed WHERE; do it before adding the
 	// sort / limit so it reflects the filtered universe, not the page.
 	total, err := base.Clone().Count(ctx)

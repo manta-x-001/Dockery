@@ -67,14 +67,27 @@ func wireApp(confServer *conf.Server, confData *conf.Data, dockery *conf.Dockery
 	reconcilerConfig := biz.NewReconcilerConfigFromConf(dockery)
 	reconciler := biz.NewReconciler(repoMetaUsecase, client, auditUsecase, reconcilerConfig, logger)
 	gcRunner := biz.NewGCRunner(gcConfig, maintenance, auditUsecase, repoMetaUsecase, reconciler, logger)
-	adminService := service.NewAdminService(auditUsecase, gcRunner)
+	imageIndexRepo := data.NewImageIndexRepo(dataData)
+	imageIndexUsecase := biz.NewImageIndexUsecase(imageIndexRepo, client, repoMetaUsecase, logger)
+	namespaceRepo := data.NewNamespaceRepo(dataData)
+	store, err := biz.NewBackupStore(dockery)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	backupConfig := biz.NewBackupConfigFromConf(dockery)
+	backupUsecase := biz.NewBackupUsecase(userRepo, permissionRepo, namespaceRepo, store, auditUsecase, backupConfig, logger)
+	adminService := service.NewAdminService(auditUsecase, gcRunner, imageIndexUsecase, backupUsecase)
 	webhookSecretConfig := biz.NewWebhookSecretConfigFromConf(dockery)
 	webhookSecret, err := biz.NewWebhookSecret(webhookSecretConfig)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	webhookService := service.NewWebhookService(webhookSecret, repoMetaUsecase)
+	webhookService := service.NewWebhookService(webhookSecret, repoMetaUsecase, imageIndexUsecase)
+	namespaceUsecase := biz.NewNamespaceUsecase(namespaceRepo, repoMetaUsecase, permissionUsecase)
+	namespaceService := service.NewNamespaceService(namespaceUsecase, permissionUsecase, userUsecase, auditUsecase)
+	imageSearchService := service.NewImageSearchService(imageIndexUsecase, userUsecase, permissionUsecase)
 	services := &service.Services{
 		System:         systemService,
 		Auth:           authService,
@@ -86,12 +99,14 @@ func wireApp(confServer *conf.Server, confData *conf.Data, dockery *conf.Dockery
 		Token:          tokenService,
 		Admin:          adminService,
 		Webhook:        webhookService,
+		Namespace:      namespaceService,
+		ImageSearch:    imageSearchService,
 	}
 	memoryStore := session.NewMemoryStore()
 	config := biz.NewSessionConfigFromConf(dockery)
 	manager := biz.NewSessionManager(memoryStore, config)
 	httpServer := server.NewHTTPServer(confServer, services, manager, logger)
-	app := newApp(logger, httpServer, userUsecase, registryPolicyBiz, repoMetaUsecase, reconciler, dockery)
+	app := newApp(logger, httpServer, userUsecase, registryPolicyBiz, repoMetaUsecase, reconciler, backupUsecase, dockery)
 	return app, func() {
 		cleanup()
 	}, nil

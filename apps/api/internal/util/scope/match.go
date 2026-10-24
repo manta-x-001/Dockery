@@ -72,16 +72,21 @@ func Match(role Role, patterns []string, requested Scope) []string {
 // MatchPattern reports whether a single glob pattern matches a
 // repository name. Supported wildcards:
 //
-//	*          — matches any repository (whole name)
-//	alice/*    — any repo whose *last segment* is under "alice/"
-//	alice/app  — exact match
+//   - — matches any repository (whole name)
+//     alice/*    — any repo whose *last segment* is under "alice/"
+//     alice/**   — any repository at any depth under "alice/"
+//     alice/app  — exact match
 //
 // Semantics: "*" substitutes exactly one path segment (i.e. it does
 // not cross "/"). This mirrors the common intuition that "alice/*"
-// means repos owned by alice but not sub-namespaces.
+// means repos owned by alice but not sub-namespaces. A trailing "/**"
+// is the recursive form used for namespace grants.
 func MatchPattern(pattern, name string) bool {
 	if pattern == "*" {
 		return true
+	}
+	if base, ok := strings.CutSuffix(pattern, "/**"); ok && !strings.Contains(base, "*") {
+		return strings.HasPrefix(name, base+"/")
 	}
 	if !strings.Contains(pattern, "*") {
 		return pattern == name

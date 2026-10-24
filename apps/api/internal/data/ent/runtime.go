@@ -4,6 +4,8 @@ package ent
 
 import (
 	"api/internal/data/ent/auditlog"
+	"api/internal/data/ent/imageindex"
+	"api/internal/data/ent/namespace"
 	"api/internal/data/ent/repometa"
 	"api/internal/data/ent/repopermission"
 	"api/internal/data/ent/schema"
@@ -34,6 +36,60 @@ func init() {
 	auditlogDescSuccess := auditlogFields[6].Descriptor()
 	// auditlog.DefaultSuccess holds the default value on creation for the success field.
 	auditlog.DefaultSuccess = auditlogDescSuccess.Default.(bool)
+	imageindexFields := schema.ImageIndex{}.Fields()
+	_ = imageindexFields
+	// imageindexDescRepo is the schema descriptor for repo field.
+	imageindexDescRepo := imageindexFields[0].Descriptor()
+	// imageindex.RepoValidator is a validator for the "repo" field. It is called by the builders before save.
+	imageindex.RepoValidator = imageindexDescRepo.Validators[0].(func(string) error)
+	// imageindexDescTag is the schema descriptor for tag field.
+	imageindexDescTag := imageindexFields[1].Descriptor()
+	// imageindex.TagValidator is a validator for the "tag" field. It is called by the builders before save.
+	imageindex.TagValidator = imageindexDescTag.Validators[0].(func(string) error)
+	// imageindexDescDigest is the schema descriptor for digest field.
+	imageindexDescDigest := imageindexFields[2].Descriptor()
+	// imageindex.DigestValidator is a validator for the "digest" field. It is called by the builders before save.
+	imageindex.DigestValidator = imageindexDescDigest.Validators[0].(func(string) error)
+	// imageindexDescGitRepo is the schema descriptor for git_repo field.
+	imageindexDescGitRepo := imageindexFields[3].Descriptor()
+	// imageindex.DefaultGitRepo holds the default value on creation for the git_repo field.
+	imageindex.DefaultGitRepo = imageindexDescGitRepo.Default.(string)
+	// imageindexDescGitRepoNorm is the schema descriptor for git_repo_norm field.
+	imageindexDescGitRepoNorm := imageindexFields[4].Descriptor()
+	// imageindex.DefaultGitRepoNorm holds the default value on creation for the git_repo_norm field.
+	imageindex.DefaultGitRepoNorm = imageindexDescGitRepoNorm.Default.(string)
+	// imageindexDescGitCommit is the schema descriptor for git_commit field.
+	imageindexDescGitCommit := imageindexFields[5].Descriptor()
+	// imageindex.DefaultGitCommit holds the default value on creation for the git_commit field.
+	imageindex.DefaultGitCommit = imageindexDescGitCommit.Default.(string)
+	// imageindexDescGitBranch is the schema descriptor for git_branch field.
+	imageindexDescGitBranch := imageindexFields[6].Descriptor()
+	// imageindex.DefaultGitBranch holds the default value on creation for the git_branch field.
+	imageindex.DefaultGitBranch = imageindexDescGitBranch.Default.(string)
+	// imageindexDescGitTag is the schema descriptor for git_tag field.
+	imageindexDescGitTag := imageindexFields[7].Descriptor()
+	// imageindex.DefaultGitTag holds the default value on creation for the git_tag field.
+	imageindex.DefaultGitTag = imageindexDescGitTag.Default.(string)
+	// imageindexDescGitHash is the schema descriptor for git_hash field.
+	imageindexDescGitHash := imageindexFields[8].Descriptor()
+	// imageindex.DefaultGitHash holds the default value on creation for the git_hash field.
+	imageindex.DefaultGitHash = imageindexDescGitHash.Default.(string)
+	// imageindexDescIndexedAt is the schema descriptor for indexed_at field.
+	imageindexDescIndexedAt := imageindexFields[9].Descriptor()
+	// imageindex.DefaultIndexedAt holds the default value on creation for the indexed_at field.
+	imageindex.DefaultIndexedAt = imageindexDescIndexedAt.Default.(func() time.Time)
+	// imageindex.UpdateDefaultIndexedAt holds the default value on update for the indexed_at field.
+	imageindex.UpdateDefaultIndexedAt = imageindexDescIndexedAt.UpdateDefault.(func() time.Time)
+	namespaceFields := schema.Namespace{}.Fields()
+	_ = namespaceFields
+	// namespaceDescPath is the schema descriptor for path field.
+	namespaceDescPath := namespaceFields[0].Descriptor()
+	// namespace.PathValidator is a validator for the "path" field. It is called by the builders before save.
+	namespace.PathValidator = namespaceDescPath.Validators[0].(func(string) error)
+	// namespaceDescCreatedAt is the schema descriptor for created_at field.
+	namespaceDescCreatedAt := namespaceFields[3].Descriptor()
+	// namespace.DefaultCreatedAt holds the default value on creation for the created_at field.
+	namespace.DefaultCreatedAt = namespaceDescCreatedAt.Default.(func() time.Time)
 	repometaFields := schema.RepoMeta{}.Fields()
 	_ = repometaFields
 	// repometaDescRepo is the schema descriptor for repo field.

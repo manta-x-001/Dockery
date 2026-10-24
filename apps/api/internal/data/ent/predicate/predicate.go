@@ -9,6 +9,12 @@ import (
 // AuditLog is the predicate function for auditlog builders.
 type AuditLog func(*sql.Selector)
 
+// ImageIndex is the predicate function for imageindex builders.
+type ImageIndex func(*sql.Selector)
+
+// Namespace is the predicate function for namespace builders.
+type Namespace func(*sql.Selector)
+
 // RepoMeta is the predicate function for repometa builders.
 type RepoMeta func(*sql.Selector)
 

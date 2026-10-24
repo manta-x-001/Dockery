@@ -513,6 +513,21 @@ UI admin 页点"执行 GC"：
 5. 用旧密钥签的 token 全部失效（用户会被迫重新 docker login + 重新访问 UI）；
 6. 写 audit `key.rotated`。
 
+### 8.7 数据库备份与恢复
+
+SQLite 中除 `repo_meta` / `image_index` 这类可从 registry 存储重建的缓存外，还有**无法重建**的状态：用户、`repo_permissions`（含 namespace 授权 `ns/**`）、显式创建的 namespace。`BackupUsecase` 把它们定时备份到**与 registry 相同的对象存储**：
+
+- registry 配了 S3（`REGISTRY_STORAGE_S3_BUCKET` 等变量）时，复用同一组 bucket / AK / SK / endpoint，写到 `<rootdirectory>/dockery-backup/`（与 registry 自己的 `docker/registry/v2/` 平级，GC 不会碰）。支持 AWS S3 与 MinIO 等 S3 兼容存储。
+- 否则（filesystem driver）写到本地目录 `dockery.backup.dir`（容器内默认 `/data/backup`）。
+- **只备份用户名、角色、禁用状态、权限 pattern、namespace，不备份密码哈希**。对象名 `<UTC时间>_<内容hash8>_<用户数>.json`。
+- 默认每 24h 一次（`dockery.backup.interval_hours`），内容无变化则跳过，保留最近 `keep`（默认 14）份。可设 `DOCKERY_BACKUP_PASSPHRASE` 启用 AES-256-GCM 加密。
+- 防覆盖：数据库刚被重建（仅 1 个用户）而最新备份用户更多时，定时任务不会写新备份，等待人工恢复。
+- 管理接口（admin）：`POST /api/admin/backups`（立即备份）、`GET /api/admin/backups`、`POST /api/admin/backups/restore {"name": ""}`（空 = 最新）。
+
+恢复是合并语义，**不触碰密码列**：已存在的用户保留原密码，只同步角色与禁用状态；不存在的用户被创建，密码为随机的不可用值，响应里的 `need_password` 列出这些用户，需 admin 用 `PUT /api/users/{id}/password` 重设后才能登录。缺失的权限和 namespace 被补齐，不删除任何现有数据。
+
+整库丢失后的流程：以 `DOCKERY_ADMIN_PASSWORD` 启动 → 登录 → restore → 逐个重设恢复用户的密码；`repo_meta` / `image_index` 由 reconciler 自动从 registry 重建。
+
 ### 8.6 Catalog cache（repo_meta）三路同步（M3.5）
 
 Catalog 页 `GET /api/registry/overview` 从 `repo_meta` 表直接读，不再对每个 repo 扇出 manifest 请求。缓存由三条链路共同维持一致：

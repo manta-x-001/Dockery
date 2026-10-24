@@ -40,3 +40,12 @@ dockery:
     # meta refresh, UI proxy). Loopback to supervisord-managed
     # distribution inside the container.
     upstream_url: http://127.0.0.1:5001
+  backup:
+    # Scheduled backup of users (no passwords), roles, repo permissions and
+    # namespaces. Goes to the registry's S3 bucket when REGISTRY_STORAGE_S3_*
+    # is set (same credentials), otherwise to `dir` below. Set
+    # DOCKERY_BACKUP_PASSPHRASE to encrypt backups.
+    disabled: false
+    interval_hours: 24
+    keep: 14
+    dir: /data/backup

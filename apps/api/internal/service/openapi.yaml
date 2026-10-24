@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: Dockery API
+  version: "1.0"
+  description: |
+    Reverse lookup from git coordinates to images. Images are indexed
+    from the `git.repo`, `git.commit`, `git.branch`, `git.tag` and
+    `git.hash` labels of the image config when pushed, e.g.
+
+        docker build --label git.repo=https://github.com/acme/app \
+          --label git.commit=$(git rev-parse HEAD) \
+          --label git.branch=$(git branch --show-current) .
+
+    Every response is wrapped as `{"code":0,"message":"...","data":...}`.
+servers:
+  - url: /
+security:
+  - basicAuth: []
+paths:
+  /api/images/search:
+    get:
+      operationId: searchImages
+      summary: Find images by git repository / commit / branch / tag
+      description: |
+        At least one filter is required; filters are AND-ed. Results are
+        limited to repositories the caller may pull. `git.repo` matches
+        regardless of spelling (`https://github.com/Acme/App.git`,
+        `git@github.com:acme/app` and `github.com/acme/app` are equal).
+        `git.commit` and `git.hash` accept a prefix of at least 7 characters.
+        Underscore spellings (`git_repo`) are accepted too.
+      parameters:
+        - {name: git.repo, in: query, schema: {type: string}}
+        - {name: git.commit, in: query, schema: {type: string, minLength: 7}}
+        - {name: git.hash, in: query, schema: {type: string, minLength: 7}}
+        - {name: git.branch, in: query, schema: {type: string}}
+        - {name: git.tag, in: query, schema: {type: string}}
+        - {name: digest, in: query, schema: {type: string}}
+        - name: fuzzy
+          in: query
+          description: When true, git.repo, git.branch and git.tag match as case-insensitive substrings instead of exactly.
+          schema: {type: boolean, default: false}
+        - {name: page, in: query, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: page_size, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      responses:
+        "200":
+          description: Matching images, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: {type: integer}
+                  message: {type: string}
+                  data: {$ref: "#/components/schemas/ImageSearchResponse"}
+        "400": {description: No filter given or a malformed filter.}
+        "401": {description: Missing or invalid credentials.}
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: A Dockery username and password (the same as `docker login`). A UI session cookie also works.
+  schemas:
+    ImageSearchResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/Image"}
+        total: {type: integer}
+        page: {type: integer}
+        page_size: {type: integer}
+    Image:
+      type: object
+      properties:
+        repo: {type: string, example: acme/app}
+        tag: {type: string, example: v1.2.0}
+        image: {type: string, example: "acme/app:v1.2.0"}
+        digest: {type: string, example: "sha256:0123abcd..."}
+        git_repo: {type: string}
+        git_commit: {type: string}
+        git_branch: {type: string}
+        git_tag: {type: string}
+        git_hash: {type: string}
+        indexed_at: {type: integer, description: Unix seconds.}

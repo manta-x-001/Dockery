@@ -103,4 +103,24 @@ func (r *permissionRepo) UpdatePattern(ctx context.Context, id int, pattern stri
 	return nil
 }
 
+func (r *permissionRepo) ListByPattern(ctx context.Context, pattern string) ([]*biz.Permission, error) {
+	rows, err := r.data.DB().RepoPermission.Query().
+		Where(repopermission.RepoPatternEQ(pattern)).
+		WithUser().
+		Order(ent.Asc(repopermission.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*biz.Permission, 0, len(rows))
+	for _, p := range rows {
+		uid := 0
+		if p.Edges.User != nil {
+			uid = p.Edges.User.ID
+		}
+		out = append(out, &biz.Permission{ID: p.ID, UserID: uid, RepoPattern: p.RepoPattern, CreatedAt: p.CreatedAt.Unix()})
+	}
+	return out, nil
+}
+
 var _ biz.PermissionRepo = (*permissionRepo)(nil)

@@ -24,6 +24,9 @@ func registerRoutes(r *router.Router, svcs *service.Services, sm *session.Manage
 	// and middleware further down can read it.
 	api := r.Group("/api", session.Middleware(sm))
 	registerAuthRoutes(api, svcs)
+	// Accepts a session or HTTP Basic itself, so CI can call it
+	// without a cookie jar.
+	api.GET("/images/search", svcs.ImageSearch.Search)
 	registerSessionRoutes(api, svcs)
 	registerAdminRoutes(api, svcs)
 }
@@ -39,6 +42,7 @@ func registerPublicRoutes(r *router.Router, svcs *service.Services) {
 	// via a shared bearer secret (see biz/webhook_secret.go), not session.
 	// Loopback-only in the container image; in remote deployments, the
 	// route should be restricted at the nginx layer too.
+	r.GET("/api/openapi.yaml", svcs.ImageSearch.Spec)
 	r.POST("/api/internal/registry-events", svcs.Webhook.Handle)
 }
 
@@ -65,6 +69,8 @@ func registerSessionRoutes(api *router.Router, svcs *service.Services) {
 	// "demo/hello" or "org/team/svc". gorilla/mux backtracks the greedy
 	// `.+` against the trailing literal (/tags, /manifests, /blobs) so
 	// the match unambiguously resolves.
+	g.GET("/namespaces", svcs.Namespace.List)
+
 	g.GET("/registry/catalog", svcs.Registry.Catalog)
 	g.GET("/registry/overview", svcs.Registry.Overview)
 	g.GET("/registry/{name:.+}/tags", svcs.Registry.Tags)
@@ -92,7 +98,17 @@ func registerAdminRoutes(api *router.Router, svcs *service.Services) {
 	g.PATCH("/permissions/{id}", svcs.Permission.Update)
 	g.DELETE("/permissions/{id}", svcs.Permission.Revoke)
 
+	g.POST("/namespaces", svcs.Namespace.Create)
+	g.DELETE("/namespaces", svcs.Namespace.Delete)
+	g.GET("/namespaces/grants", svcs.Namespace.ListGrants)
+	g.POST("/namespaces/grants", svcs.Namespace.Grant)
+	g.DELETE("/namespaces/grants", svcs.Namespace.Revoke)
+
 	g.POST("/admin/gc", svcs.Admin.TriggerGC)
+	g.POST("/admin/backups", svcs.Admin.RunBackup)
+	g.GET("/admin/backups", svcs.Admin.ListBackups)
+	g.POST("/admin/backups/restore", svcs.Admin.RestoreBackup)
+	g.POST("/admin/image-index/rebuild", svcs.Admin.RebuildImageIndex)
 	g.POST("/admin/rotate-signing-key", svcs.Admin.RotateKey)
 	g.GET("/admin/registry-policy", svcs.RegistryPolicy.Get)
 	g.PATCH("/admin/registry-policy", svcs.RegistryPolicy.Update)

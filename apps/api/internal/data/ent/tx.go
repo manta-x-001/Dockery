@@ -14,6 +14,10 @@ type Tx struct {
 	config
 	// AuditLog is the client for interacting with the AuditLog builders.
 	AuditLog *AuditLogClient
+	// ImageIndex is the client for interacting with the ImageIndex builders.
+	ImageIndex *ImageIndexClient
+	// Namespace is the client for interacting with the Namespace builders.
+	Namespace *NamespaceClient
 	// RepoMeta is the client for interacting with the RepoMeta builders.
 	RepoMeta *RepoMetaClient
 	// RepoPermission is the client for interacting with the RepoPermission builders.
@@ -154,6 +158,8 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.AuditLog = NewAuditLogClient(tx.config)
+	tx.ImageIndex = NewImageIndexClient(tx.config)
+	tx.Namespace = NewNamespaceClient(tx.config)
 	tx.RepoMeta = NewRepoMetaClient(tx.config)
 	tx.RepoPermission = NewRepoPermissionClient(tx.config)
 	tx.SystemSetting = NewSystemSettingClient(tx.config)

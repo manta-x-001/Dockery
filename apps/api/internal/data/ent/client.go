@@ -12,6 +12,8 @@ import (
 	"api/internal/data/ent/migrate"
 
 	"api/internal/data/ent/auditlog"
+	"api/internal/data/ent/imageindex"
+	"api/internal/data/ent/namespace"
 	"api/internal/data/ent/repometa"
 	"api/internal/data/ent/repopermission"
 	"api/internal/data/ent/systemsetting"
@@ -30,6 +32,10 @@ type Client struct {
 	Schema *migrate.Schema
 	// AuditLog is the client for interacting with the AuditLog builders.
 	AuditLog *AuditLogClient
+	// ImageIndex is the client for interacting with the ImageIndex builders.
+	ImageIndex *ImageIndexClient
+	// Namespace is the client for interacting with the Namespace builders.
+	Namespace *NamespaceClient
 	// RepoMeta is the client for interacting with the RepoMeta builders.
 	RepoMeta *RepoMetaClient
 	// RepoPermission is the client for interacting with the RepoPermission builders.
@@ -50,6 +56,8 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.AuditLog = NewAuditLogClient(c.config)
+	c.ImageIndex = NewImageIndexClient(c.config)
+	c.Namespace = NewNamespaceClient(c.config)
 	c.RepoMeta = NewRepoMetaClient(c.config)
 	c.RepoPermission = NewRepoPermissionClient(c.config)
 	c.SystemSetting = NewSystemSettingClient(c.config)
@@ -147,6 +155,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ctx:            ctx,
 		config:         cfg,
 		AuditLog:       NewAuditLogClient(cfg),
+		ImageIndex:     NewImageIndexClient(cfg),
+		Namespace:      NewNamespaceClient(cfg),
 		RepoMeta:       NewRepoMetaClient(cfg),
 		RepoPermission: NewRepoPermissionClient(cfg),
 		SystemSetting:  NewSystemSettingClient(cfg),
@@ -171,6 +181,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ctx:            ctx,
 		config:         cfg,
 		AuditLog:       NewAuditLogClient(cfg),
+		ImageIndex:     NewImageIndexClient(cfg),
+		Namespace:      NewNamespaceClient(cfg),
 		RepoMeta:       NewRepoMetaClient(cfg),
 		RepoPermission: NewRepoPermissionClient(cfg),
 		SystemSetting:  NewSystemSettingClient(cfg),
@@ -203,21 +215,23 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
-	c.AuditLog.Use(hooks...)
-	c.RepoMeta.Use(hooks...)
-	c.RepoPermission.Use(hooks...)
-	c.SystemSetting.Use(hooks...)
-	c.User.Use(hooks...)
+	for _, n := range []interface{ Use(...Hook) }{
+		c.AuditLog, c.ImageIndex, c.Namespace, c.RepoMeta, c.RepoPermission,
+		c.SystemSetting, c.User,
+	} {
+		n.Use(hooks...)
+	}
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
-	c.AuditLog.Intercept(interceptors...)
-	c.RepoMeta.Intercept(interceptors...)
-	c.RepoPermission.Intercept(interceptors...)
-	c.SystemSetting.Intercept(interceptors...)
-	c.User.Intercept(interceptors...)
+	for _, n := range []interface{ Intercept(...Interceptor) }{
+		c.AuditLog, c.ImageIndex, c.Namespace, c.RepoMeta, c.RepoPermission,
+		c.SystemSetting, c.User,
+	} {
+		n.Intercept(interceptors...)
+	}
 }
 
 // Mutate implements the ent.Mutator interface.
@@ -225,6 +239,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *AuditLogMutation:
 		return c.AuditLog.mutate(ctx, m)
+	case *ImageIndexMutation:
+		return c.ImageIndex.mutate(ctx, m)
+	case *NamespaceMutation:
+		return c.Namespace.mutate(ctx, m)
 	case *RepoMetaMutation:
 		return c.RepoMeta.mutate(ctx, m)
 	case *RepoPermissionMutation:
@@ -368,6 +386,272 @@ func (c *AuditLogClient) mutate(ctx context.Context, m *AuditLogMutation) (Value
 		return (&AuditLogDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AuditLog mutation op: %q", m.Op())
+	}
+}
+
+// ImageIndexClient is a client for the ImageIndex schema.
+type ImageIndexClient struct {
+	config
+}
+
+// NewImageIndexClient returns a client for the ImageIndex from the given config.
+func NewImageIndexClient(c config) *ImageIndexClient {
+	return &ImageIndexClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `imageindex.Hooks(f(g(h())))`.
+func (c *ImageIndexClient) Use(hooks ...Hook) {
+	c.hooks.ImageIndex = append(c.hooks.ImageIndex, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `imageindex.Intercept(f(g(h())))`.
+func (c *ImageIndexClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ImageIndex = append(c.inters.ImageIndex, interceptors...)
+}
+
+// Create returns a builder for creating a ImageIndex entity.
+func (c *ImageIndexClient) Create() *ImageIndexCreate {
+	mutation := newImageIndexMutation(c.config, OpCreate)
+	return &ImageIndexCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ImageIndex entities.
+func (c *ImageIndexClient) CreateBulk(builders ...*ImageIndexCreate) *ImageIndexCreateBulk {
+	return &ImageIndexCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ImageIndexClient) MapCreateBulk(slice any, setFunc func(*ImageIndexCreate, int)) *ImageIndexCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ImageIndexCreateBulk{err: fmt.Errorf("calling to ImageIndexClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ImageIndexCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ImageIndexCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ImageIndex.
+func (c *ImageIndexClient) Update() *ImageIndexUpdate {
+	mutation := newImageIndexMutation(c.config, OpUpdate)
+	return &ImageIndexUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ImageIndexClient) UpdateOne(ii *ImageIndex) *ImageIndexUpdateOne {
+	mutation := newImageIndexMutation(c.config, OpUpdateOne, withImageIndex(ii))
+	return &ImageIndexUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ImageIndexClient) UpdateOneID(id int) *ImageIndexUpdateOne {
+	mutation := newImageIndexMutation(c.config, OpUpdateOne, withImageIndexID(id))
+	return &ImageIndexUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ImageIndex.
+func (c *ImageIndexClient) Delete() *ImageIndexDelete {
+	mutation := newImageIndexMutation(c.config, OpDelete)
+	return &ImageIndexDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ImageIndexClient) DeleteOne(ii *ImageIndex) *ImageIndexDeleteOne {
+	return c.DeleteOneID(ii.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ImageIndexClient) DeleteOneID(id int) *ImageIndexDeleteOne {
+	builder := c.Delete().Where(imageindex.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ImageIndexDeleteOne{builder}
+}
+
+// Query returns a query builder for ImageIndex.
+func (c *ImageIndexClient) Query() *ImageIndexQuery {
+	return &ImageIndexQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeImageIndex},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ImageIndex entity by its id.
+func (c *ImageIndexClient) Get(ctx context.Context, id int) (*ImageIndex, error) {
+	return c.Query().Where(imageindex.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ImageIndexClient) GetX(ctx context.Context, id int) *ImageIndex {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ImageIndexClient) Hooks() []Hook {
+	return c.hooks.ImageIndex
+}
+
+// Interceptors returns the client interceptors.
+func (c *ImageIndexClient) Interceptors() []Interceptor {
+	return c.inters.ImageIndex
+}
+
+func (c *ImageIndexClient) mutate(ctx context.Context, m *ImageIndexMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ImageIndexCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ImageIndexUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ImageIndexUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ImageIndexDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ImageIndex mutation op: %q", m.Op())
+	}
+}
+
+// NamespaceClient is a client for the Namespace schema.
+type NamespaceClient struct {
+	config
+}
+
+// NewNamespaceClient returns a client for the Namespace from the given config.
+func NewNamespaceClient(c config) *NamespaceClient {
+	return &NamespaceClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `namespace.Hooks(f(g(h())))`.
+func (c *NamespaceClient) Use(hooks ...Hook) {
+	c.hooks.Namespace = append(c.hooks.Namespace, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `namespace.Intercept(f(g(h())))`.
+func (c *NamespaceClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Namespace = append(c.inters.Namespace, interceptors...)
+}
+
+// Create returns a builder for creating a Namespace entity.
+func (c *NamespaceClient) Create() *NamespaceCreate {
+	mutation := newNamespaceMutation(c.config, OpCreate)
+	return &NamespaceCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Namespace entities.
+func (c *NamespaceClient) CreateBulk(builders ...*NamespaceCreate) *NamespaceCreateBulk {
+	return &NamespaceCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *NamespaceClient) MapCreateBulk(slice any, setFunc func(*NamespaceCreate, int)) *NamespaceCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &NamespaceCreateBulk{err: fmt.Errorf("calling to NamespaceClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*NamespaceCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &NamespaceCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Namespace.
+func (c *NamespaceClient) Update() *NamespaceUpdate {
+	mutation := newNamespaceMutation(c.config, OpUpdate)
+	return &NamespaceUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *NamespaceClient) UpdateOne(n *Namespace) *NamespaceUpdateOne {
+	mutation := newNamespaceMutation(c.config, OpUpdateOne, withNamespace(n))
+	return &NamespaceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *NamespaceClient) UpdateOneID(id int) *NamespaceUpdateOne {
+	mutation := newNamespaceMutation(c.config, OpUpdateOne, withNamespaceID(id))
+	return &NamespaceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Namespace.
+func (c *NamespaceClient) Delete() *NamespaceDelete {
+	mutation := newNamespaceMutation(c.config, OpDelete)
+	return &NamespaceDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *NamespaceClient) DeleteOne(n *Namespace) *NamespaceDeleteOne {
+	return c.DeleteOneID(n.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *NamespaceClient) DeleteOneID(id int) *NamespaceDeleteOne {
+	builder := c.Delete().Where(namespace.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &NamespaceDeleteOne{builder}
+}
+
+// Query returns a query builder for Namespace.
+func (c *NamespaceClient) Query() *NamespaceQuery {
+	return &NamespaceQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeNamespace},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Namespace entity by its id.
+func (c *NamespaceClient) Get(ctx context.Context, id int) (*Namespace, error) {
+	return c.Query().Where(namespace.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *NamespaceClient) GetX(ctx context.Context, id int) *Namespace {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *NamespaceClient) Hooks() []Hook {
+	return c.hooks.Namespace
+}
+
+// Interceptors returns the client interceptors.
+func (c *NamespaceClient) Interceptors() []Interceptor {
+	return c.inters.Namespace
+}
+
+func (c *NamespaceClient) mutate(ctx context.Context, m *NamespaceMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&NamespaceCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&NamespaceUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&NamespaceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&NamespaceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Namespace mutation op: %q", m.Op())
 	}
 }
 
@@ -938,9 +1222,11 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		AuditLog, RepoMeta, RepoPermission, SystemSetting, User []ent.Hook
+		AuditLog, ImageIndex, Namespace, RepoMeta, RepoPermission, SystemSetting,
+		User []ent.Hook
 	}
 	inters struct {
-		AuditLog, RepoMeta, RepoPermission, SystemSetting, User []ent.Interceptor
+		AuditLog, ImageIndex, Namespace, RepoMeta, RepoPermission, SystemSetting,
+		User []ent.Interceptor
 	}
 )

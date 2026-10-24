@@ -56,6 +56,9 @@ type OverviewFilter struct {
 	// Query is a case-insensitive substring match on repo name.
 	// Empty string = no search filter.
 	Query string
+	// Namespace restricts to repos at any depth under this path
+	// ("org" matches "org/app" and "org/team/app"). Empty = all.
+	Namespace string
 	// Sort is which column to ORDER BY.
 	Sort OverviewSort
 	// Direction is asc/desc. Sort is stabilized by a secondary repo-asc
@@ -131,6 +134,29 @@ type RepoMetaUsecase struct {
 	// workerCancel stops the background worker; bound to the usecase's
 	// root context so shutdown drains it cleanly.
 	workerCancel context.CancelFunc
+
+	// hooks run after every successful refresh with the repo's current
+	// tag list (empty when the repo is gone). Guarded by mu.
+	hooks []RefreshHook
+}
+
+// RefreshHook observes a completed refresh of one repo.
+type RefreshHook func(ctx context.Context, repo string, tags []string)
+
+// AddRefreshHook registers fn to run after each successful refresh.
+func (u *RepoMetaUsecase) AddRefreshHook(fn RefreshHook) {
+	u.mu.Lock()
+	u.hooks = append(u.hooks, fn)
+	u.mu.Unlock()
+}
+
+func (u *RepoMetaUsecase) runHooks(ctx context.Context, repo string, tags []string) {
+	u.mu.Lock()
+	hooks := append([]RefreshHook(nil), u.hooks...)
+	u.mu.Unlock()
+	for _, h := range hooks {
+		h(ctx, repo, tags)
+	}
 }
 
 // NewRepoMetaUsecase boots the usecase and starts its background
@@ -335,6 +361,7 @@ func (u *RepoMetaUsecase) refreshOnce(ctx context.Context, repo string) error {
 		if delErr := u.repo.Delete(ctx, repo); delErr != nil {
 			u.logger.Debugf("delete empty repo %s: %v", repo, delErr)
 		}
+		u.runHooks(ctx, repo, nil)
 		return nil
 	}
 	latestTag := pickRepresentativeTag(tags)
@@ -346,7 +373,11 @@ func (u *RepoMetaUsecase) refreshOnce(ctx context.Context, repo string) error {
 	meta.LatestTag = latestTag
 	meta.TagCount = len(tags)
 	meta.RefreshedAt = time.Now().Unix()
-	return u.repo.Upsert(ctx, meta)
+	if err := u.repo.Upsert(ctx, meta); err != nil {
+		return err
+	}
+	u.runHooks(ctx, repo, tags)
+	return nil
 }
 
 // pickRepresentativeTag chooses which tag's manifest the cache row

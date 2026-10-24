@@ -22,6 +22,11 @@ type repoMetaRefresher interface {
 	IncrementPull(ctx context.Context, repo string)
 }
 
+// tagIndexer is the slice of ImageIndexUsecase the webhook uses.
+type tagIndexer interface {
+	IndexTagAsync(repo, tag string)
+}
+
 // seenEventCap bounds the per-generation event-ID set. With two
 // generations active at a time we track up to 2*cap distinct IDs (about
 // 140 KB of strings worst case at 36-char UUIDs), which comfortably
@@ -40,15 +45,22 @@ const seenEventCap = 1024
 type WebhookService struct {
 	secret *biz.WebhookSecret
 	meta   repoMetaRefresher
+	index  tagIndexer
 	seen   *seenEvents
 }
 
-func NewWebhookService(secret *biz.WebhookSecret, meta *biz.RepoMetaUsecase) *WebhookService {
-	return &WebhookService{
+func NewWebhookService(secret *biz.WebhookSecret, meta *biz.RepoMetaUsecase, index *biz.ImageIndexUsecase) *WebhookService {
+	svc := &WebhookService{
 		secret: secret,
 		meta:   meta,
 		seen:   newSeenEvents(seenEventCap),
 	}
+	// Assign only when non-nil: a nil *ImageIndexUsecase stored in the
+	// interface would defeat the `!= nil` check at the call site.
+	if index != nil {
+		svc.index = index
+	}
+	return svc
 }
 
 // seenEvents is a bounded, allocation-stable dedup set for distribution
@@ -171,6 +183,12 @@ func (s *WebhookService) Handle(ctx *router.Context) error {
 		switch ev.Action {
 		case "push", "delete":
 			refreshSet[ev.Target.Repository] = struct{}{}
+			// A push by tag may have moved the tag to a new image, so
+			// re-read its labels now; deletes are handled by the
+			// refresh's SyncRepo.
+			if ev.Action == "push" && ev.Target.Tag != "" && s.index != nil {
+				s.index.IndexTagAsync(ev.Target.Repository, ev.Target.Tag)
+			}
 		case "pull":
 			// Pull counts update immediately; refresh only if we've
 			// never seen this repo before (the increment is a no-op on
@@ -215,4 +233,3 @@ func isManifestMediaType(mt string) bool {
 	}
 	return false
 }
-

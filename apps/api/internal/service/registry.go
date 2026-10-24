@@ -24,16 +24,16 @@ import (
 // the Distribution Registry API without having to deal with Docker
 // token auth in the browser.
 //
-//   1. kratoscarf session middleware has already authenticated the user.
-//   2. RegistryService checks the user's Dockery-level permissions
-//      (biz.PermissionUsecase) for each requested operation.
-//   3. For every upstream call, we mint a short-lived (30s) Ed25519 JWT
-//      with admin-level scope and forward the request to the local
-//      distribution daemon on 127.0.0.1:5001; this is safe because
-//      dockery-api is the trust anchor and we've already enforced the
-//      user's actual role/permission at step 2.
-//   4. Responses (or list contents) are passed through to the UI after
-//      optional filtering (catalog is filtered for non-admins).
+//  1. kratoscarf session middleware has already authenticated the user.
+//  2. RegistryService checks the user's Dockery-level permissions
+//     (biz.PermissionUsecase) for each requested operation.
+//  3. For every upstream call, we mint a short-lived (30s) Ed25519 JWT
+//     with admin-level scope and forward the request to the local
+//     distribution daemon on 127.0.0.1:5001; this is safe because
+//     dockery-api is the trust anchor and we've already enforced the
+//     user's actual role/permission at step 2.
+//  4. Responses (or list contents) are passed through to the UI after
+//     optional filtering (catalog is filtered for non-admins).
 type RegistryService struct {
 	users       *biz.UserUsecase
 	perms       *biz.PermissionUsecase
@@ -175,6 +175,7 @@ type OverviewResponse struct {
 //
 // Query params:
 //   - q          — substring match on repo name (case-insensitive)
+//   - namespace  — only repos under this path, at any depth
 //   - sort       — name | updated | size | tags  (default name)
 //   - direction  — asc | desc  (default depends on sort column)
 //   - page       — 0-based (default 0)
@@ -186,6 +187,7 @@ func (s *RegistryService) Overview(ctx *router.Context) error {
 	}
 
 	q := strings.TrimSpace(ctx.Query("q"))
+	namespace := strings.Trim(strings.TrimSpace(ctx.Query("namespace")), "/")
 	sortName := ctx.Query("sort")
 	direction := ctx.Query("direction")
 	page := queryIntDefault(ctx, "page", 0)
@@ -208,6 +210,7 @@ func (s *RegistryService) Overview(ctx *router.Context) error {
 	if user.Role == "admin" || len(patterns) == 0 {
 		bizPage, err := s.meta.QueryPage(ctx.Context(), biz.OverviewFilter{
 			Query:     q,
+			Namespace: namespace,
 			Sort:      parseSort(sortName),
 			Direction: parseDirection(direction, sortName),
 			Page:      clampNonNeg(page),
@@ -229,6 +232,15 @@ func (s *RegistryService) Overview(ctx *router.Context) error {
 		return response.ErrInternal.WithCause(err)
 	}
 	items = filterMetaByPatterns(items, patterns)
+	if namespace != "" {
+		inNS := make([]*biz.RepoMeta, 0, len(items))
+		for _, m := range items {
+			if strings.HasPrefix(m.Repo, namespace+"/") {
+				inNS = append(inNS, m)
+			}
+		}
+		items = inNS
+	}
 	if q != "" {
 		lower := strings.ToLower(q)
 		filtered := make([]*biz.RepoMeta, 0, len(items))

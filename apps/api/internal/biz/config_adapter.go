@@ -1,7 +1,9 @@
 package biz
 
 import (
+	"api/internal/util/backupstore"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -79,6 +81,29 @@ func NewReconcilerConfigFromConf(c *conf.Dockery) ReconcilerConfig {
 		interval = time.Duration(c.Reconciler.IntervalMinutes) * time.Minute
 	}
 	return ReconcilerConfig{Interval: interval}
+}
+
+// NewBackupStore picks where backups go: the registry's S3 bucket when the
+// registry is configured for S3 (REGISTRY_STORAGE_S3_* credentials are
+// reused), otherwise dockery.backup.dir (default: "backup" beside the
+// signing key directory).
+func NewBackupStore(c *conf.Dockery) (backupstore.Store, error) {
+	dir := c.Backup.Dir
+	if dir == "" {
+		dir = filepath.Join(filepath.Dir(filepath.Dir(c.Keystore.PrivatePath)), "backup")
+	}
+	return backupstore.FromEnv(dir)
+}
+
+// NewBackupConfigFromConf derives the backup knobs; the passphrase is read
+// from the environment so it never lands in a config file.
+func NewBackupConfigFromConf(c *conf.Dockery) BackupConfig {
+	return BackupConfig{
+		Disabled:   c.Backup.Disabled,
+		Interval:   time.Duration(c.Backup.IntervalHours) * time.Hour,
+		Keep:       c.Backup.Keep,
+		Passphrase: os.Getenv("DOCKERY_BACKUP_PASSPHRASE"),
+	}
 }
 
 // NewTokenIssuerConfigFromConf derives a TokenIssuerConfig from the

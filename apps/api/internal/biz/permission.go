@@ -23,6 +23,8 @@ type PermissionRepo interface {
 	CreateOne(ctx context.Context, userID int, pattern string) (*Permission, error)
 	DeleteByID(ctx context.Context, id int) error
 	UpdatePattern(ctx context.Context, id int, pattern string) error
+	// ListByPattern returns every row whose pattern equals `pattern`.
+	ListByPattern(ctx context.Context, pattern string) ([]*Permission, error)
 }
 
 var (
@@ -76,6 +78,11 @@ func (u *PermissionUsecase) GrantPatterns(ctx context.Context, userID int, patte
 
 func (u *PermissionUsecase) ListForUser(ctx context.Context, userID int) ([]*Permission, error) {
 	return u.permRepo.ListForUser(ctx, userID)
+}
+
+// ListByPattern returns the grants of one exact pattern across users.
+func (u *PermissionUsecase) ListByPattern(ctx context.Context, pattern string) ([]*Permission, error) {
+	return u.permRepo.ListByPattern(ctx, pattern)
 }
 
 func (u *PermissionUsecase) Revoke(ctx context.Context, permissionID int) error {
